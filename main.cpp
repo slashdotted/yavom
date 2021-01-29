@@ -98,7 +98,10 @@ Snake make_snake(const Point& start, const Point& middle, const Point& end, cons
     }
 }
 
-
+inline bool in_area(int x, int y, int N, int M)
+{
+    return x <= N && y <= M;
+}
 
 
 
@@ -121,18 +124,21 @@ std::set<Snake,SnakeLessThan> boxed_myers_snakes(const T& a_begin,
                            || std::is_same<T,typename C<K>::const_reverse_iterator>::value};
     std::set<Snake,SnakeLessThan> snakes;
     std::vector<int> V;
-    int max = M+N;
+    //int max = M+N;
+    int max = (M+N)/2+1;
     V.resize(2*max+1);
     V[1] = 0;
-    int x{0},y{-1};
+    int x{0},y{0};
     int ses{-1};
+    std::cerr << "Area size " << N << 'x' << M << '\n';
 #define TK(v) (v+max)
     for (int d {0}; d<= max; ++d) {
-        auto min_valid_k = -d + std::max(0, d - M) * 2;
+        auto min_valid_k = -d + std::max(0, d-M) * 2;
         auto max_valid_k = d - std::max(0, d-N) * 2;
         for (int k = min_valid_k; k<= max_valid_k; k+=2) {
             int px = V[TK(k)];
             int py = px -k;
+            // Move downward or to the right
             if (k == -d || ((k != d )&& (V[TK(k-1)] < V[TK(k+1)]))) {
                 x = V[TK(k+1)];
             }
@@ -142,14 +148,15 @@ std::set<Snake,SnakeLessThan> boxed_myers_snakes(const T& a_begin,
             y = x - k;
             int mx = x;
             int my = y;
+            // Follow diagonal as long as possible
             while ((x < N) && (y < M) && (*(a_begin+x) == *(b_begin+y))) {
                 ++x;
                 ++y;
             }
+            // Store best position on this diagonal
             V[TK(k)] = x;
             // Store snake if it's inside the search area
-            if ((px >= 0 && mx >= 0 && x >= 0 && px <= N && mx <= N && x <= N)
-                    && (py >= 0 && my >= 0 && y >= 0 && py <= M && my <= M && y <= M)) {
+            if (in_area(px, py, N, M) && in_area(mx, my, N, M) && in_area(x, y, N, M)) {
                 // std::cerr << "Found snake";
                 auto snake = make_snake<reverse>({px, py}, {mx, my}, {x, y}, origin, N, M);
                 // print_snake(std::cerr, snake);
@@ -209,258 +216,46 @@ std::vector<Snake> solve_area(const std::vector<std::string>& a,
         return solution;
     }
     else {
-        //std::cerr << "Processing area from " << x0 << ',' << y0 << " to " << x1 << ',' << y1 << '\n';
+        std::cerr << "Forward Processing area from " << x0 << ',' << y0 << " to " << x1 << ',' << y1 << '\n';
         auto fsnakes = boxed_myers_snakes<std::vector, std::string>(
                            a.cbegin()+x0, N,
                            b.cbegin()+y0, M);
         if (fsnakes.empty()) {
-            //std::cerr << "No snakes in forward\n";
-            return solution;
+            throw "No snakes in forward";
         }
+        std::cerr << "Backward Processing area from " << x0 << ',' << y0 << " to " << x1 << ',' << y1 << '\n';
         auto bsnakes = boxed_myers_snakes<std::vector, std::string>(
                            std::make_reverse_iterator(a.cbegin()+x1), N,
                            std::make_reverse_iterator(b.cbegin()+y1), M, fsnakes);
         if (bsnakes.empty()) {
-            //std::cerr << "No matching snakes in backward\n";
-            return {};
+            throw "No matching snakes in backward";
         }
         // There should be a matching snake
         middle = *bsnakes.begin();
-        //std::cerr << "Middle snake: ";
-        //print_snake(std::cerr, middle);
+        std::cerr << "Middle snake: ";
+        print_snake(std::cerr, middle);
     }
 
     const auto& [A,B,C,D] = middle;
     const auto& [tx,ty] = A;
     const auto& [bx,by] = D;
-    //std::cerr << "\tDelegating top area from " << x0 << ',' << y0 << " to " << tx << ',' << ty << '\n';
-    auto top = solve_area(a, b, {
-        x0, y0, tx, ty
-    });
-    solution.push_back(middle);
-    solution.insert( solution.begin(), top.begin(), top.end() );
     //std::cerr << "\tDelegating bottom area from " << bx << ',' << by << " to " << x1 << ',' << y1 << '\n';
     auto bottom = solve_area(a, b, {
         bx, by, x1,y1
     });
-    solution.insert( solution.end(), bottom.begin(), bottom.end() );
+    //std::cerr << bottom.size() << std::endl;
+    solution.insert( solution.begin(), bottom.begin(), bottom.end() );
+    solution.insert(solution.begin(), middle);
+    //std::cerr << "\tDelegating top area from " << x0 << ',' << y0 << " to " << tx << ',' << ty << '\n';
+    auto top = solve_area(a, b, {
+        x0, y0, tx, ty
+    });
+    solution.insert( solution.begin(), top.begin(), top.end() );
+
     return solution;
 }
 
 // ****************************************************************************3
-
-
-template<typename T>
-void boxed_myers(const T& a_begin,
-                 const T& a_end,
-                 const T& b_begin,
-                 const T& b_end)
-{
-    std::vector<int> V;
-    int N = std::distance(a_begin, a_end);
-    int M = std::distance(b_begin, b_end);
-    int max = M+N;
-    V.resize(2*max+1);
-    V[1] = 0;
-    int x{0},y{0};
-    int ses{-1};
-#define TK(v) (v+max)
-    for (int d {0}; d<= max; ++d) {
-        auto min_valid_k = -d + std::max(0, d - M) * 2;
-        auto max_valid_k = d - std::max(0, d-N) * 2;
-        for (int k = min_valid_k; k<= max_valid_k; k+=2) {
-            if (k == -d || ((k != d )&& (V[TK(k-1)] < V[TK(k+1)]))) {
-                x = V[TK(k+1)];
-            }
-            else {
-                x = V[TK(k-1)] + 1;
-            }
-            y = x - k;
-            while ((x < N) && (y < M) && (*(a_begin+x) == *(b_begin+y))) {
-                ++x;
-                ++y;
-            }
-            V[TK(k)] = x;
-            if ((x>=N) && (y>= M)) {
-                ses = d;
-                goto outside;
-            }
-        }
-    }
-outside:
-    std::cerr << "SES " << ses << '\n';
-}
-
-void myers_base(const std::vector<std::string>& a, const std::vector<std::string>& b)
-{
-    std::vector<int> V;
-    int N = a.size();
-    int M = b.size();
-    int max = M+N;
-    V.resize(2*max+1);
-    V[1] = 0;
-    int x{0},y{0};
-    int ses{-1};
-#define TK(v) (v+max)
-    for (int d {0}; d<= max; ++d) {
-        auto min_valid_k = -d + std::max(0, d - M) * 2;
-        auto max_valid_k = d - std::max(0, d-N) * 2;
-        //std::cerr << "d=" << d << " k_range=(" << min_valid_k << "," << max_valid_k << ")\n";
-        for (int k = min_valid_k; k<= max_valid_k; k+=2) {
-            // If we are at the bottom diagonal (k == -d) or if we are
-            // not on the topmost diagonal (k!=d) and the upper diagonal went further
-            // than the lower diagonal (relative to the current one k), INSERT
-            if (k == -d || ((k != d )&& (V[TK(k-1)] < V[TK(k+1)]))) {
-                x = V[TK(k+1)];
-            }
-            // Otherwise go downward to the lowest diagonal and advance x one step, right, DELETE
-            else {
-                x = V[TK(k-1)] + 1;
-            }
-            y = x - k;
-            // Consume original diagonal (if possible)
-            while ((x < N) && (y < M) && (a[x] == b[y])) {
-                ++x;
-                ++y;
-            }
-            V[TK(k)] = x; // Store the farthest point on this diagonal
-            if ((x>=N) && (y>= M)) {
-                ses = d;
-                goto outside;
-            }
-        }
-    }
-outside:
-    std::cerr << "SES " << ses << '\n';
-}
-
-void myers_base1(const std::vector<std::string>& a, const std::vector<std::string>& b)
-{
-    std::vector<int> V;
-    int N = a.size();
-    int M = b.size();
-    int max = M+N;
-    V.resize(2*max+1);
-    V[1] = 0;
-    int x{0},y{0};
-    int ses{-1};
-#define TK(v) (v+max)
-    for (int d {0}; d<= max; ++d) {
-        for (int k = -d; k<= d; k+=2) {
-            if (k == -d || ((k != d )&& (V[TK(k-1)] < V[TK(k+1)]))) {
-                x = V[TK(k+1)];
-            }
-            else {
-                x = V[TK(k-1)] + 1;
-            }
-            y = x - k;
-            while ((x < N) && (y < M) && (a[x] == b[y])) {
-                ++x;
-                ++y;
-            }
-            V[TK(k)] = x; // Store the farthest point on this diagonal
-            if ((x>=N) && (y>= M)) {
-                ses = d;
-                goto outside;
-            }
-        }
-    }
-outside:
-    std::cerr << "SES " << ses << '\n';
-}
-
-
-
-
-std::vector<Step> myers_diff(const std::vector<std::string>& a,
-                             const std::vector<std::string>& b)
-{
-    std::vector<Step> steps;
-    std::vector<int> V;
-    std::vector<std::vector<int>> paths;
-    int N = a.size();
-    int M = b.size();
-    int max = M+N;
-    V.resize(2*max+1);
-    V[1] = 0;
-    int x{0},y{0};
-    int ses{-1};
-#define TK(v) (v+max)
-    for (int d {0}; d<= max; ++d) {
-        paths.push_back(V);
-        auto min_valid_k = -d + std::max(0, d - M) * 2;
-        auto max_valid_k = d - std::max(0, d-N) * 2;
-        //std::cerr << "d=" << d << " k_range=(" << min_valid_k << "," << max_valid_k << ")\n";
-        for (int k = min_valid_k; k<= max_valid_k; k+=2) {
-            // If we are at the bottom diagonal (k == -d) or if we are
-            // not on the topmost diagonal (k!=d) and the upper diagonal went further
-            // than the lower diagonal (relative to the current one k), INSERT
-            if (k == -d || ((k != d )&& (V[TK(k-1)] < V[TK(k+1)]))) {
-                x = V[TK(k+1)];
-            }
-            // Otherwise go downward to the lowest diagonal and advance x one step, right, DELETE
-            else {
-                x = V[TK(k-1)] + 1;
-            }
-            y = x - k;
-            // Consume original diagonal (if possible)
-            while ((x < N) && (y < M) && (a[x] == b[y])) {
-                ++x;
-                ++y;
-            }
-            V[TK(k)] = x; // Store the farthest point on this diagonal
-            if ((x>=N) && (y>= M)) {
-                ses = d;
-                goto outside;
-            }
-        }
-    }
-outside:
-    //std::cerr << "SES " << ses << '\n';
-    //std::cerr << "paths.size() = " << paths.size() << '\n';
-
-    x = a.size();
-    y = b.size();
-
-    //std::cerr << "Starting from (" << x << "," << y << ")\n";
-    for (int d{ses}; d >= 0; --d) {
-        int k = x - y;
-        const auto& Vd = paths[d]; // Vd[k] is the best x on diagonal k
-        auto min_valid_k = -d + std::max(0, d - M) * 2;
-        auto max_valid_k = d - std::max(0, d-N) * 2;
-        auto half = Vd.size() / 2;
-        //auto max_iter = std::max_element(Vd.begin() + half + min_valid_k, Vd.begin() + half + max_valid_k, [](const auto& lh, const auto& rh) {
-        auto max_iter = std::max_element(Vd.begin(), Vd.end(), [](const auto& lh, const auto& rh) {
-            return lh < rh;
-        });
-        int best_k = std::distance(Vd.begin(), max_iter) - max;
-        //std::cerr << "Best k=" << best_k << " with "<< *max_iter<< "\n";
-        auto prev_x = *max_iter;
-        auto prev_y = prev_x - best_k;
-        std::cerr << "(" << x << "," << y << ") on diagonal k=" << k << " will move to (" << prev_x << "," << prev_y << ") on diagonal prev=" << best_k << '\n';
-        if (best_k < k) {
-            // Was a rightward move
-            //std::cerr << "A (" << x << ',' << y << ") -> (" << prev_x << ',' << prev_y << ')' << '\n';
-            steps.insert(steps.begin(), {OP::DELETE, x, {}});
-        }
-        else if (best_k > k) {
-            // Was a downward move
-            //std::cerr << "+ (" << x << ',' << y << ") -> (" << prev_x << ',' << prev_y << ')' << '\n';
-            steps.insert(steps.begin(), {OP::INSERT, x, b[prev_y]});
-        }
-        while(a[prev_x] == b[prev_y]) {
-            //std::cerr << " @(" << prev_x << "," << prev_y << ") " << a[prev_x] << "==" << b[prev_y] << "\n";
-            --prev_x;
-            --prev_y;
-        }
-        //std::cerr << "D (" << x << ',' << y << ") -> (" << prev_x << ',' << prev_y << ')' << '\n';
-
-        x = prev_x;
-        y = prev_y;
-    }
-    std::reverse(steps.begin(), steps.end());
-    return steps;
-}
 
 
 std::vector<std::string> readFile(const std::string& filePath)
