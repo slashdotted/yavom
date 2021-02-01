@@ -7,252 +7,249 @@
 #include <fstream>
 #include <algorithm>
 #include <set>
-
-
-enum class OP { KEEP, DELETE, INSERT };
-using Step=std::tuple<OP,unsigned int,std::string>;
+#include <list>
+#include <cassert>
 
 
 #define TK(v) (v+max)
 
-using Point=std::tuple<unsigned int, unsigned int>;
-using Snake=std::tuple<Point /*A*/,
-      Point /*B*/,
-      Point /*C*/,
-      Point /*D*/>;
+struct Point {
+    unsigned int x;
+    unsigned int y;
+};
+
+bool operator!=(const Point& a, const Point& b)
+{
+    return a.x != b.x || a.y != b.y;
+}
+
+bool operator==(const Point& a, const Point& b)
+{
+    return a.x == b.x && a.y == b.y;
+}
+
+struct Snake {
+    Point s;
+    Point t;
+
+    bool empty()
+    {
+        return s.x == t.x && s.y == t.y;
+    }
+};
+
 void print_point(std::ostream& o, const Point& p)
 {
     const auto& [x,y] = p;
     o << '(' << x << ',' << y << ')';
 }
 
-void print_snake(std::ostream& o, const Snake& s)
+bool print_snake(std::ostream& o, const Snake& s)
 {
-    const auto& [A, B, C, D] = s;
-
-    print_point(o, A);
-    o << "->";
-    print_point(o, B);
-    o << "->";
-    print_point(o, C);
-    o << "->";
-    print_point(o, D);
-    o << '\n';
+    const auto& [from, to] = s;
+    if (from != to) {
+        print_point(o, from);
+        o << "->";
+        print_point(o, to);
+        return true;
+    }
+    return false;
 }
 
-void print_move(const Point& f, const Point& t, const std::string& b)
-{
-    const auto& [fx, fy] = f;
-    const auto& [tx, ty] = t;
-
-}
-
-void print_snake(std::ostream& o, const Snake& s, const std::string& b)
-{
-    const auto& [A, B, C, D] = s;
-    if (A != B) {
-        print_move(A,B, b);
-    }
-    if(C != D) {
-        print_move(C,D, b);
-    }
-}
-
-struct SnakeLessThan : public std::binary_function<Snake, Snake, bool> {
-    bool operator()(const Snake& lhs, const Snake& rhs) const
-    {
-        const auto& [lA, lB, lC, lD] = lhs;
-        const auto& [rA, rB, rC, rD] = rhs;
-        const auto& [lBx, lBy] = lB;
-        const auto& [rBx, rBy] = rB;
-        const auto& [lCx, lCy] = lC;
-        const auto& [rCx, rCy] = rC;
-        return (lBx < rBx) &&  (lBy < rBy) && (lCx < rCx) && (lCy < rCy);
-    }
-};
-
-
-template<bool reverse>
-Snake make_snake(const Point& start, const Point& middle, const Point& end, const Point& origin, int N, int M)
-{
-    auto translate_coordinate = [origin](const Point& p) -> Point {
-        const auto& [x,y] = p;
-        const auto& [ox,oy] = origin;
-        return {ox+x, oy+y};
-    };
-    if constexpr (reverse) {
-        auto reverse_coordinate = [N,M](const Point& p) -> Point {
-            const auto& [x,y] = p;
-            return {N-x, M-y};
-        };
-        auto D = translate_coordinate(reverse_coordinate(start));
-        auto C = translate_coordinate(reverse_coordinate(middle));
-        auto B = translate_coordinate(reverse_coordinate(end));
-        return Snake{B,B,C,D};
-    }
-    else {
-        auto A = translate_coordinate(start);
-        auto B = translate_coordinate(middle);
-        auto C = translate_coordinate(end);
-        return Snake{A,B,C,C};
-    }
-}
-
-inline bool in_area(int x, int y, int N, int M)
-{
-    return x <= N && y <= M;
-}
-
-
-
-/**
- * a_begin is the starting point in the initial string
- * b_begin is the starting point in the final string
- * N is the width of the box
- * M is the height of the box
- * origin is the top,left (x,y) coordinate (in normal NOT REVERSED!) of the box
- */
-template<template <typename ...> typename C, typename K, typename T>
-std::set<Snake,SnakeLessThan> boxed_myers_snakes(const T& a_begin,
-        int N,
-        const T&  b_begin,
-        int M,
-        const std::set<Snake,SnakeLessThan>& other_snakes = {},
-        std::tuple<int,int> origin = {0,0})
-{
-    constexpr bool reverse{std::is_same<T,typename C<K>::reverse_iterator>::value
-                           || std::is_same<T,typename C<K>::const_reverse_iterator>::value};
-    std::set<Snake,SnakeLessThan> snakes;
-    std::vector<int> V;
-    //int max = M+N;
-    int max = (M+N)/2+1;
-    V.resize(2*max+1);
-    V[1] = 0;
-    int x{0},y{0};
-    int ses{-1};
-    std::cerr << "Area size " << N << 'x' << M << '\n';
 #define TK(v) (v+max)
+template<typename T>
+std::tuple<Point,Point> myers_middle_snake(const Point& origin,
+        const Point& limit,
+        const T& a,
+        const T&  b)
+{
+    std::cerr << "Finding meeting point in box ("
+              << origin.x << ',' << origin.y << ")(" << limit.x <<',' << limit.y << ")\n";
+    int M = limit.y - origin.y;
+    int N = limit.x - origin.x;
+
+    int max = M+N;
+
+    std::vector<int> V_fwd;
+    V_fwd.resize(2*max+1);
+    V_fwd[1] = 0;
+    int x_fwd{0},y_fwd{0};
+    const auto& fwd_it_a = a.cbegin() + origin.x;
+    const auto& fwd_it_b = b.cbegin() + origin.y;
+
+    std::vector<int> V_bwd;
+    V_bwd.resize(2*max+1);
+    V_bwd[1] = 0;
+    int x_bwd{0},y_bwd{0};
+    auto bwd_it_a = std::make_reverse_iterator(a.cbegin() + limit.x);
+    auto bwd_it_b = std::make_reverse_iterator(b.cbegin() + limit.y);
+
     for (int d {0}; d<= max; ++d) {
         auto min_valid_k = -d + std::max(0, d-M) * 2;
-        auto max_valid_k = d - std::max(0, d-N) * 2;
+        auto max_valid_k = d - std::max(0, d-N) * 2 ;
+        // Forward step
+        bool at_dest{false};
         for (int k = min_valid_k; k<= max_valid_k; k+=2) {
-            int px = V[TK(k)];
-            int py = px -k;
             // Move downward or to the right
-            if (k == -d || ((k != d )&& (V[TK(k-1)] < V[TK(k+1)]))) {
-                x = V[TK(k+1)];
+            if (k == -d || ((k != d )&& (V_fwd[TK(k-1)] < V_fwd[TK(k+1)]))) {
+                x_fwd = V_fwd[TK(k+1)];
             }
             else {
-                x = V[TK(k-1)] + 1;
+                x_fwd = V_fwd[TK(k-1)] + 1;
             }
-            y = x - k;
-            int mx = x;
-            int my = y;
+            y_fwd = x_fwd - k;
             // Follow diagonal as long as possible
-            while ((x < N) && (y < M) && (*(a_begin+x) == *(b_begin+y))) {
-                ++x;
-                ++y;
+            while ((x_fwd < N) && (y_fwd < M) && (*(fwd_it_a+x_fwd) == *(fwd_it_b+y_fwd))) {
+                ++x_fwd;
+                ++y_fwd;
+            }
+            // Store best x position on this diagonal
+            V_fwd[TK(k)] = x_fwd;
+            if (x_fwd >= N and y_fwd >= M) {
+                at_dest = true;
+                break;
+            }
+        }
+
+        // Backward step
+        for (int k = min_valid_k; k<= max_valid_k; k+=2) {
+            // Move downward or to the right
+            if (k == -d || ((k != d )&& (V_bwd[TK(k-1)] < V_bwd[TK(k+1)]))) {
+                x_bwd = V_bwd[TK(k+1)];
+            }
+            else {
+                x_bwd = V_bwd[TK(k-1)] + 1;
+            }
+            y_bwd = x_bwd - k;
+            // Follow diagonal as long as possible
+            while ((x_bwd < N) && (y_bwd < M) && (*(bwd_it_a+x_bwd) == *(bwd_it_b+y_bwd))) {
+                ++x_bwd;
+                ++y_bwd;
             }
             // Store best position on this diagonal
-            V[TK(k)] = x;
-            // Store snake if it's inside the search area
-            if (in_area(px, py, N, M) && in_area(mx, my, N, M) && in_area(x, y, N, M)) {
-                // std::cerr << "Found snake";
-                auto snake = make_snake<reverse>({px, py}, {mx, my}, {x, y}, origin, N, M);
-                // print_snake(std::cerr, snake);
-                if constexpr (reverse) {
-                    auto fwd_snake = std::find_if(other_snakes.find(snake),
-                    other_snakes.end(), [snake](const auto& o) {
-                        const auto& [lA, lB, lC, lD] = snake;
-                        const auto& [rA, rB, rC, rD] = o;
-                        return lB == rB && lC == rC;
-                    });
-                    if (fwd_snake != other_snakes.end()) {
-                        const auto& [fA, fB, fC, fD] = *fwd_snake;
-                        return {{fA, fB, fC, std::get<3>(snake)}};
+            V_bwd[TK(k)] = x_bwd;
+            if (x_bwd >= N and y_bwd >= M) {
+                at_dest = true;
+                break;
+            }
+        }
+
+        if (true) {
+            std::cerr << "d=" << d << '\n';
+            std::cerr << "Current points so far... forward:";
+            for (int k = min_valid_k; k<= max_valid_k; k+=1) {
+                auto x = V_fwd[TK(k)];
+                auto y = x -k;
+                std::cerr << "(" << x << ',' << y << "), " ;
+            }
+
+            std::cerr << "\nCurrent points so far... backward:";
+            for (int k = min_valid_k; k<= max_valid_k; k+=1) {
+                auto x = V_bwd[TK(k)];
+                auto y = x -k;
+                std::cerr << "(" << N-x << ',' << M-y << "), " ;
+            }
+            std::cerr << '\n';
+            std::string s;
+            std::getline(std::cin, s);
+        }
+
+
+
+
+
+        // Compare V_fwd and V_bwd (if the sum on each diagonal is > N we met somewhere)
+        if (d >= abs(N-M)) {
+            for (int k = min_valid_k; k<= max_valid_k; k+=1) {
+                auto k_bwd = k + (N-M); // match forward and backward diagonal
+                const auto& current_x_fwd =V_fwd[TK(k)];
+                const auto& current_x_bwd = V_bwd[TK(k_bwd)];
+                if (current_x_fwd >= (N - current_x_bwd)) {
+                    std::cerr << "d=" << d << " on forward diagonal " << k << " forward went to " << current_x_bwd << " while backward went to " << current_x_bwd <<'\n';
+                    // X points on the diagonal met or crossed
+                    // The end points can be used as midpoints
+                    unsigned int s_x_fwd = current_x_fwd;
+                    unsigned int s_y_fwd = s_x_fwd - k;
+                    unsigned int s_x_bwd = N - current_x_bwd;
+                    unsigned int s_y_bwd = M - (current_x_bwd - k_bwd);
+                    if ((s_x_fwd <= limit.x && s_y_fwd <= limit.y
+                            && s_x_fwd >= origin.x && s_y_fwd >= origin.y)
+                            && (s_x_bwd <= limit.x && s_y_bwd <= limit.y
+                                && s_x_bwd >= origin.x && s_y_bwd >= origin.y)) {
+                        std::cerr << "Found!\n";
+                        return {{s_x_bwd, s_y_bwd}, {s_x_fwd, s_y_fwd}};
+                    }
+                    else {
+                        std::cerr << "(" << s_x_bwd << "," << s_y_bwd << ") - (" << s_x_fwd <<',' << s_y_fwd << ") is outside box ("
+                                  << origin.x << ',' << origin.y << ")(" << limit.x <<',' << limit.y << ")\n";
                     }
                 }
-                else {
-                    snakes.insert(snake);
-                }
-            }
-            if ((x>=N) && (y>= M)) {
-                ses = d;
-                goto outside;
             }
         }
+        if (at_dest) {
+            break;
+        }
     }
-outside:
-    return snakes;
+    std::cerr << "No middle meeting\n";
+    return {{0,0},{0,0}};
 }
 
-using Area=std::tuple<int /* x0 */, int /* y0 */, int /* x1 */, int /* y1 */>;
-
-std::vector<Snake> solve_area(const std::vector<std::string>& a,
-                              const std::vector<std::string>& b,
-                              Area area = {-1,0,0,0})
+template<typename T>
+std::list<Snake> myers(const Point& o, const Point& l, const T& a, const T&  b)
 {
-    std::vector<Snake> solution;
-    Snake middle;
-    const auto& [x0, y0, x1, y1] = area;
-    if (x0 < 0) {
-        return solve_area(a, b, {0,0,a.size(), b.size()});
-    }
-    int N = x1-x0;
-    int M = y1-y0;
-    if (N== 0 && M==0) {
+    std::list<Snake> result;
+    if (l == o) {
         return {};
     }
-    else if (N == 0) {
-        for (int y{y0}; y<y1; ++y) {
-            solution.push_back({{x0,y},{x0,y+1},{x0,y+1},{x0,y+1}});
-        }
-        return solution;
+    Point origin = o;
+    Point limit = l;
+
+    // Consume same prefix
+    while (*(a.cbegin()+origin.x) == *(b.cbegin()+origin.y)) {
+        //std::cerr << "Value " << *(a.cbegin()+origin.x) << "==" << *(b.cbegin()+origin.y) << '\n';
+        ++origin.x;
+        ++origin.y;
     }
-    else if (M == 0) {
-        for (int x{x0}; x<x1; ++x) {
-            solution.push_back({{x,y0},{x+1,y0},{x+1,y0},{x+1,y0}});
+    assert(*(a.cbegin()+origin.x) != *(b.cbegin()+origin.y));
+
+    // Consume same suffix
+    while (*(a.cbegin()+limit.x-1) == *(b.cbegin()+limit.y-1)) {
+        //std::cerr << "Value 2: " << *(a.cbegin()+limit.x-1) << "==" << *(b.cbegin()+limit.y-1) << '\n';
+        --limit.x;
+        --limit.y;
+    }
+    assert((*(a.cbegin()+limit.x-1) != *(b.cbegin()+limit.y-1)));
+    std::cerr << "Processing area from (" << origin.x << ',' << origin.y << ") to (" << limit.x << ',' << limit.y << ") " << '\n';
+    if (limit.x == origin.x) {
+        // Vertical movement
+        std::cerr << "Just a vertical movement!\n";
+        for (unsigned int y{origin.y}; y < limit.y-1; ++y) {
+            result.insert(result.begin(), Snake{{origin.x,y},{origin.x,y+1}});
         }
-        return solution;
+    }
+    else if (origin.y == limit.y) {
+        // Horizontal movement
+        std::cerr << "Just an horizontal  movement!\n";
+        for (unsigned int x{origin.x}; x < limit.x-1; ++x) {
+            result.insert(result.begin(), Snake{{x,origin.y},{x+1, origin.y}});
+        }
     }
     else {
-        std::cerr << "Forward Processing area from " << x0 << ',' << y0 << " to " << x1 << ',' << y1 << '\n';
-        auto fsnakes = boxed_myers_snakes<std::vector, std::string>(
-                           a.cbegin()+x0, N,
-                           b.cbegin()+y0, M);
-        if (fsnakes.empty()) {
-            throw "No snakes in forward";
+        auto middle = myers_middle_snake(origin, limit, a, b);
+        const auto& [top,bottom] = middle;
+        const auto& [tx,ty] = top;
+        const auto& [bx,by] = bottom;
+        std::cerr<< "Middle diagonal: " << top.x << ',' << top.y << " to " << bottom.x << ',' << bottom.y << '\n';
+        if (tx != 0 || ty !=0 || bx !=0 || by !=0) {
+            std::cerr << "\tProcessing top area from (" << origin.x << ',' << origin.y << ") to (" << top.x << ',' << top.y << ") " << '\n';
+            std::cerr << "\tProcessing bottom area from (" << bottom.x << ',' << bottom.y << ") to (" << limit.x << ',' << limit.y << ") " << '\n';
+            auto top_area = myers(origin, {tx,ty}, a, b);
+            auto bottom_area = myers({bx, by}, limit, a, b);
+            result.insert(result.begin(), top_area.begin(), top_area.end());
+            result.insert(result.end(), bottom_area.begin(), bottom_area.end());
         }
-        std::cerr << "Backward Processing area from " << x0 << ',' << y0 << " to " << x1 << ',' << y1 << '\n';
-        auto bsnakes = boxed_myers_snakes<std::vector, std::string>(
-                           std::make_reverse_iterator(a.cbegin()+x1), N,
-                           std::make_reverse_iterator(b.cbegin()+y1), M, fsnakes);
-        if (bsnakes.empty()) {
-            throw "No matching snakes in backward";
-        }
-        // There should be a matching snake
-        middle = *bsnakes.begin();
-        std::cerr << "Middle snake: ";
-        print_snake(std::cerr, middle);
     }
-
-    const auto& [A,B,C,D] = middle;
-    const auto& [tx,ty] = A;
-    const auto& [bx,by] = D;
-    //std::cerr << "\tDelegating bottom area from " << bx << ',' << by << " to " << x1 << ',' << y1 << '\n';
-    auto bottom = solve_area(a, b, {
-        bx, by, x1,y1
-    });
-    //std::cerr << bottom.size() << std::endl;
-    solution.insert( solution.begin(), bottom.begin(), bottom.end() );
-    solution.insert(solution.begin(), middle);
-    //std::cerr << "\tDelegating top area from " << x0 << ',' << y0 << " to " << tx << ',' << ty << '\n';
-    auto top = solve_area(a, b, {
-        x0, y0, tx, ty
-    });
-    solution.insert( solution.begin(), top.begin(), top.end() );
-
-    return solution;
+    return result;
 }
 
 // ****************************************************************************3
@@ -277,15 +274,15 @@ std::vector<std::string> readFile(const std::string& filePath)
 
 int main()
 {
-    if (true ) {
+    if (false ) {
         auto a = readFile("/home/attila/before.json");
         std::cerr << "Read " << a.size() << " lines\n";
         auto b = readFile("/home/attila/after.json");
         std::cerr << "Read " << b.size() << " lines\n";
-        auto r = solve_area(a,b);
-        std::cerr << "Solution:\n";
-        for (const auto& s : r) {
-            print_snake(std::cerr, s);
+        auto s= myers({0,0}, {static_cast<unsigned int>(a.size()), static_cast<unsigned int>(b.size())}, a, b);
+        for (const auto& p : s) {
+            print_snake(std::cerr, p);
+            std::cerr << '\n';
         }
     }
     else {
@@ -293,10 +290,11 @@ int main()
         std::cerr << "Read " << a.size() << " lines\n";
         auto b = readFile("/home/attila/secondo.txt");
         std::cerr << "Read " << b.size() << " lines\n";
-        auto r = solve_area(a,b);
-        std::cerr << "Solution:\n";
-        for (const auto& s : r) {
-            print_snake(std::cerr, s);
+        auto s= myers({0,0}, {static_cast<unsigned int>(a.size()), static_cast<unsigned int>(b.size())}, a, b);
+        for (const auto& p : s) {
+            if (print_snake(std::cerr, p)) {
+                std::cerr << '\n';
+            }
         }
     }
 }
