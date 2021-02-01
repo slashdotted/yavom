@@ -127,7 +127,6 @@ struct Move {
     }
 
 
-private:
     OP m_op;
     Point m_s;
     Point m_t;
@@ -200,7 +199,8 @@ struct Area {
 
     int rdiagonal(int k) const noexcept
     {
-        return (N()-M())-k;
+        //return (N()-M())-k;
+        return (-k + (N() - M()));
     }
 
     bool contains_abs(const Point& p) const noexcept
@@ -364,25 +364,30 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
     assert(false); // This can't be
 }
 
-std::list<Move> myers(const Area& area)
+std::list<Move> myers_moves(const Area& area)
 {
     std::list<Move> result;
 
     if (area.N() == 0) {
         //std::cerr << "Special case: from " << area.tl() << " to " << area.br() << " N=0 (insertions only)\n";
-        Point next{area.tl()};
+        Point prev{area.tl()};
         for (unsigned int y{0}; y < area.M(); ++y) {
-            next = next.offset(0,1);
+            auto next = prev.offset(0,1);
+            //std::cerr << "Gen INSERT " << prev << " to " << next << '\n';
+            result.insert(result.end(), Move{OP::INSERT, prev, next});
+            prev = next;
         }
-        result.insert(result.begin(), Move{OP::INSERT, area.tl(), next});
     }
     else if (area.M() == 0) {
         //std::cerr << "Special case: from " << area.tl() << " to " << area.br() << " M=0 (deletions only)\n";
-        Point next{area.tl()};
+        Point prev{area.tl()};
         for (unsigned int x{0}; x < area.N(); ++x) {
-            next = next.offset(1,0);
+            auto next = prev.offset(1,0);
+            //std::cerr << "Gen DELETE " << prev << " to " << next << '\n';
+            result.insert(result.end(), Move{OP::DELETE, prev, next});
+            prev = next;
         }
-        result.insert(result.begin(), Move{OP::DELETE, area.tl(), next});
+
     }
     else {
         //std::cerr << "Area from " << area.tl() << " to " << area.br() << '\n';
@@ -392,9 +397,10 @@ std::list<Move> myers(const Area& area)
             //std::cerr << "Middle points " << top << " -> " << bottom << '\n';
             //std::cerr << "\tProcessing top from " << area.tl() << " to " << top << '\n';
             //std::cerr << "\tProcessing bottom from " << bottom << " to " << area.br() << '\n';
-            auto top_area = myers(Area{area, area.tl(), top});
-            auto bottom_area = myers(Area{area, bottom, area.br()});
+            auto top_area = myers_moves(Area{area, area.tl(), top});
+            auto bottom_area = myers_moves(Area{area, bottom, area.br()});
             result.insert(result.begin(), top_area.begin(), top_area.end());
+            result.insert(result.end(), Move{OP::NOP, top, bottom});
             result.insert(result.end(), bottom_area.begin(), bottom_area.end());
         }
         else {
@@ -402,6 +408,18 @@ std::list<Move> myers(const Area& area)
         }
     }
     return result;
+}
+
+std::vector<Patch> myers(const std::vector<std::string>& a, const std::vector<std::string>& b)
+{
+    auto s= myers_moves({a,b});
+    int offset = 0;
+    std::vector<Patch> patches;
+    patches.reserve(s.size());
+    std::transform(s.begin(), s.end(), std::back_insert_iterator(patches), [&offset,&b](const auto& p) {
+        return p.make_patch(b, offset);
+    });
+    return patches;
 }
 
 // ****************************************************************************3
@@ -428,45 +446,91 @@ int main()
 {
     if (false) {
         auto a = readFile("/home/attila/before.json");
-        std::cerr << "Read " << a.size() << " lines\n";
         auto b = readFile("/home/attila/after.json");
-        std::cerr << "Read " << b.size() << " lines\n";
-        auto s= myers(Area{a, b});
-
-        int offset = 1;
-        std::vector<Patch> patches;
-        for (const auto& p : s) {
-            patches.push_back(p.make_patch(b, offset));
-        }
-        for (const auto& p : patches) {
-            p.apply(a);
-        }
-    }
-    else {
-        auto a = readFile("/home/attila/primo.txt");
-        std::cerr << "Read " << a.size() << " lines\n";
-        for (const auto& c : a) {
-            std::cerr << c << '\n';
-        }
-        auto b = readFile("/home/attila/secondo.txt");
-        std::cerr << "Read " << b.size() << " lines\n";
+        std::cerr << "Result before patching: ";
         for (const auto& c : b) {
-            std::cerr << c << '\n';
+            std::cerr << c;
         }
-        auto s= myers(Area{a, b});
-
-        int offset = 0;
-        std::vector<Patch> patches;
-        for (const auto& p : s) {
-            patches.push_back(p.make_patch(b, offset));
-        }
-        std::cerr << "Applying patches:\n";
+        auto patches = myers(a,b);
         for (const auto& p : patches) {
             p.apply(a);
         }
         std::cerr << "Result after patching:\n";
         for (const auto& c : a) {
-            std::cerr << c << '\n';
+            std::cout << c << '\n';
         }
+    }
+    {
+        std::cerr << "************ N < M ************\n";
+        auto a = readFile("/home/attila/secondo.txt");
+        auto b = readFile("/home/attila/primo.txt");
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+        for (const auto& c : a) {
+            std::cout << c;
+        }
+        std::cerr << '\n';
+    }
+
+    {
+        std::cerr << "************ N > M ************\n";
+        auto a = readFile("/home/attila/primo.txt");
+        auto b = readFile("/home/attila/secondo.txt");
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+        for (const auto& c : a) {
+            std::cout << c;
+        }
+        std::cerr << '\n';
+    }
+    {
+        std::cerr << "************ N == M ************\n";
+        auto a = readFile("/home/attila/primo.txt");
+        auto b = readFile("/home/attila/terzo.txt");
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+        for (const auto& c : a) {
+            std::cout << c;
+        }
+        std::cerr << '\n';
+    }
+    {
+        std::cerr << "************ N === M ************\n";
+        auto a = readFile("/home/attila/secondo.txt");
+        auto b = readFile("/home/attila/secondo.txt");
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+        for (const auto& c : a) {
+            std::cout << c;
+        }
+        std::cerr << '\n';
     }
 }
