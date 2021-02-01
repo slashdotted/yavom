@@ -16,8 +16,8 @@
 #define LINE_OFFSET 0
 
 struct Point {
-    unsigned int x;
-    unsigned int y;
+    long x;
+    long y;
 
     bool operator!=(const Point& b) const noexcept
     {
@@ -34,7 +34,7 @@ struct Point {
         return x == 0 && y == 0;
     }
 
-    Point offset(int dx, int dy) const noexcept
+    Point offset(long dx, long dy) const noexcept
     {
         return {x+dx, y+dy};
     }
@@ -53,8 +53,8 @@ enum class OP {/*NOP, */INSERT, DELETE};
 struct Patch {
     OP m_op;
     std::string m_value;
-    unsigned int m_start;
-    unsigned int m_end;
+    long m_start;
+    long m_end;
 
     void apply(std::vector<std::string>& a) const
     {
@@ -76,7 +76,12 @@ struct Patch {
     {
         switch(m_op) {
         case OP::DELETE:
-            o << m_start << '-' << m_end;
+            if (m_end - m_start > 1) {
+                o << m_start << '-' << m_end;
+            }
+            else {
+                o << m_start << '-';
+            }
             break;
         case OP::INSERT:
             o << m_start << '+' << m_value;
@@ -99,30 +104,7 @@ struct Move {
         return m_s.x == m_t.x && m_s.y == m_t.y;
     }
 
-    void write_op(std::ostream& o, const std::vector<std::string>& b, int& offset) const
-    {
-        switch(m_op) {
-        case OP::DELETE:
-            o << m_s << "->" << m_t << " ";
-            o << offset + m_s.x << '-';
-            if ((m_t.x - m_s.x) > 1) {
-                o << offset + m_t.x;
-            }
-            o << '\n';
-            offset -= (m_t.x - m_s.x);
-            break;
-        case OP::INSERT:
-            o << m_s << "->" << m_t << " ";
-            o << offset + m_s.x << '+' << b.at(m_s.y);
-            o << '\n';
-            offset += 1;
-            break;
-        default:
-            break;
-        }
-    }
-
-    Patch make_patch(const std::vector<std::string>& b, int& offset) const
+    Patch make_patch(const std::vector<std::string>& b, long& offset) const
     {
         switch(m_op) {
         case OP::DELETE: {
@@ -136,8 +118,8 @@ struct Move {
             return Patch{OP::INSERT, b.at(m_s.y), o + m_s.x, 0};
         }
         }
+        assert(false);
     }
-
 
     OP m_op;
     Point m_s;
@@ -152,55 +134,65 @@ void print_point(std::ostream& o, const Point& p)
 
 struct Area {
     Area(const std::vector<std::string>& a, const std::vector<std::string>& b)
-        : m_a{a}, m_b{b}, m_tl{0,0}, m_br{static_cast<unsigned int>(a.size()), static_cast<unsigned int>(b.size())}
+        : m_a{a}, m_b{b}, m_tl{0,0}, m_br{static_cast<long>(a.size()), static_cast<long>(b.size())}
     {
         trim();
     }
 
+    /**
+     * @brief Constructs a sub-area
+     * @param base
+     * @param tl
+     * @param br
+     */
     Area(const Area& base, const Point& tl, const Point& br)
         : m_a{base.m_a}, m_b{base.m_b}, m_tl{tl}, m_br{br}
     {
+        assert(contains_abs(tl));
+        assert(contains_abs(br));
         trim();
     }
 
-    const std::string& a(unsigned int index) const noexcept
+    const std::string& a(long index) const noexcept
     {
         return m_a[m_tl.x + index];
     }
 
-    const std::string& b(unsigned int index) const noexcept
+    const std::string& b(long index) const noexcept
     {
         return m_b[m_tl.y + index];
     }
 
-    const std::string& ra(unsigned int index) const noexcept
+    const std::string& ra(long index) const noexcept
     {
         return m_a[m_br.x -1 - index];
     }
 
-    const std::string& rb(unsigned int index) const noexcept
+    const std::string& rb(long index) const noexcept
     {
         return m_b[m_br.y -1 - index];
     }
 
-    int N() const noexcept
+    long N() const noexcept
     {
+        assert(m_br.x >= m_tl.x);
         return m_br.x - m_tl.x;
     }
 
-    int M() const noexcept
+    long M() const noexcept
     {
+        assert(m_br.y >= m_tl.y);
         return m_br.y - m_tl.y;
     }
 
-    Point abs_point_r(const Point& p) const noexcept
+    Point abs_point_r(long rel_x, long rel_y) const noexcept
     {
-        return  {m_tl.x + N() - p.x, m_tl.y + M() - p.y};
+        return  {m_tl.x + N() - rel_x, m_tl.y + M() - rel_y};
     }
 
-    Point abs_point(const Point& p) const noexcept
+    Point abs_point(long rel_x, long rel_y) const noexcept
     {
-        return  {m_tl.x + p.x, m_tl.y + p.y};
+        return  {m_tl.x + rel_x, m_tl.y + rel_y};
     }
 
     Point point_r(const Point& p) const noexcept
@@ -208,8 +200,7 @@ struct Area {
         return  {N() - p.x, M() - p.y};
     }
 
-
-    int rdiagonal(int k) const noexcept
+    long rdiagonal(long k) const noexcept
     {
         return (-k + (N() - M()));
     }
@@ -217,11 +208,6 @@ struct Area {
     bool contains_abs(const Point& p) const noexcept
     {
         return p.x >= m_tl.x && p.x <= m_br.x && p.y >= m_tl.y && p.y <= m_br.y;
-    }
-
-    bool abs_contains(const Point& p) const noexcept
-    {
-        return p.x <= static_cast<unsigned int>(N()) && p.y <= static_cast<unsigned int>(M());
     }
 
     const Point& tl() const noexcept
@@ -257,27 +243,31 @@ private:
 
 
 #define TK(v) (v+max)
+/**
+ * @brief Determines the middle diagonal (which can be of length >= 0)
+ * @param area  the search area
+ * @return      the absolute start and end points of the middle diagonal
+ */
 std::tuple<Point,Point> myers_middle_move(const Area& area)
 {
-    int max{area.M() + area.N()};
-
-    std::vector<unsigned int> V_fwd;
+    auto max{area.M() + area.N()};
+    std::vector<long> V_fwd{static_cast<unsigned int>(2*max+1), 0};
     V_fwd.resize(2*max+1);
     V_fwd[1] = 0;
-    int x_fwd{0},y_fwd{0};
+    long x_fwd{0},y_fwd{0};
 
-    std::vector<unsigned int> V_bwd;
+    std::vector<long> V_bwd{static_cast<unsigned int>(2*max+1), 0};
     V_bwd.resize(2*max+1);
     V_bwd[1] = 0;
-    int x_bwd{0},y_bwd{0};
+    long x_bwd{0},y_bwd{0};
 
 
-    for (int d {0}; d <= max; ++d) {
-        auto min_valid_k = -d + std::max(0, d-area.M()) * 2;
-        auto max_valid_k = d - std::max(0, d-area.N()) * 2 ;
+    for (int d {0}; d <= static_cast<long>(max); ++d) {
+        auto min_valid_k = -d + std::max(0l, d-static_cast<long>(area.M())) * 2;
+        auto max_valid_k = d - std::max(0l, d-static_cast<long>(area.N())) * 2 ;
         // Forward step
         bool at_dest{false};
-        for (int k = min_valid_k; k<= max_valid_k; k+=2) {
+        for (long k = min_valid_k; k<= max_valid_k; k+=2) {
             // Move downward or to the right
             if (k == -d || ((k != d )&& (V_fwd[TK(k-1)] < V_fwd[TK(k+1)]))) {
                 x_fwd = V_fwd[TK(k+1)];
@@ -300,7 +290,7 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
         }
 
         // Backward step
-        for (int k = min_valid_k; k<= max_valid_k; k+=2) {
+        for (long k = min_valid_k; k<= max_valid_k; k+=2) {
             // Move downward or to the right
             if (k == -d || ((k != d )&& (V_bwd[TK(k-1)] < V_bwd[TK(k+1)]))) {
                 x_bwd = V_bwd[TK(k+1)];
@@ -322,23 +312,21 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
             }
         }
 
-        // Compare V_fwd and V_bwd (if the sum on each diagonal is > N we met somewhere)
-        if (d >= abs(area.N() - area.M())) {
-            for (int k = min_valid_k; k<= max_valid_k; k+=1) {
-                const auto rk = area.rdiagonal(k);
-                const auto& bxf = V_fwd[TK(k)];
-                auto byf = bxf - k;
-                const auto& bxb = V_bwd[TK(rk)];
-                auto byb = bxb - rk;
-                Point abfw = area.abs_point({bxf,byf});
-                Point abbw = area.abs_point_r({bxb, byb});
-                if (abfw.x >= abbw.x) {
-                    if (area.contains_abs(abfw) && area.contains_abs(abbw)) {
-                        return {abbw, abfw};
-                    }
+        for (long k = min_valid_k; k<= max_valid_k; k+=1) {
+            const auto rk = area.rdiagonal(k);
+            const auto& bxf = V_fwd[TK(k)];
+            auto byf = bxf - k;
+            const auto& bxb = V_bwd[TK(rk)];
+            auto byb = bxb - rk;
+            Point abfw = area.abs_point(bxf,byf);
+            Point abbw = area.abs_point_r(bxb, byb);
+            if (abfw.x >= abbw.x) {
+                if (area.contains_abs(abfw) && area.contains_abs(abbw)) {
+                    return {abbw, abfw};
                 }
             }
         }
+
         if (at_dest) {
             break;
         }
@@ -349,42 +337,25 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
 std::list<Move> myers_moves(const Area& area)
 {
     std::list<Move> result;
-
     if (area.N() == 0) {
         Point prev{area.tl()};
         for (unsigned int y{0}; y < static_cast<unsigned int>(area.M()); ++y) {
             auto next = prev.offset(0,1);
-            std::cerr << "Gen INSERT " << area.b(prev.y - area.tl().y) << " at " << prev << " to " << next << '\n';
-            result.insert(result.end(), Move{OP::INSERT, prev, next});
+            result.push_back(Move{OP::INSERT, prev, next});
             prev = next;
         }
     }
     else if (area.M() == 0) {
-        //std::cerr << "Special case: from " << area.tl() << " to " << area.br() << " M=0 (deletions only)\n";
-        std::cerr << "Gen DELETE from " << area.tl().x << " to  " << area.br().x << '\n';
-        result.insert(result.end(), Move{OP::DELETE, area.tl(), area.br()});
-        //Point prev{area.tl()};
-        /*      int range
-              for (unsigned int x{0}; x < static_cast<unsigned int>(area.N()); ++x) {
-                  auto next = prev.offset(1,0);
-                  std::cerr << "Gen DELETE " << area.a(prev.x - area.tl().x) << " at " << prev << " to " << next << '\n';
-                  result.insert(result.end(), Move{OP::DELETE, prev, next});
-                  prev = next;
-              }*/
-
+        //std::cerr << "DELETE RUN " << area.tl() << " to " << area.br() << '\n';
+        result.push_back(Move{OP::DELETE, area.tl(), area.br()});
     }
     else {
-        //std::cerr << "Area from " << area.tl() << " to " << area.br() << '\n';
         auto middle = myers_middle_move(area);
         const auto& [top,bottom] = middle;
         if (!top.is_null() || !bottom.is_null()) {
-            //std::cerr << "Middle points " << top << " -> " << bottom << '\n';
-            //std::cerr << "\tProcessing top from " << area.tl() << " to " << top << '\n';
-            //std::cerr << "\tProcessing bottom from " << bottom << " to " << area.br() << '\n';
             auto top_area = myers_moves(Area{area, area.tl(), top});
             auto bottom_area = myers_moves(Area{area, bottom, area.br()});
             result.insert(result.begin(), top_area.begin(), top_area.end());
-            //result.insert(result.end(), Move{OP::NOP, top, bottom});
             result.insert(result.end(), bottom_area.begin(), bottom_area.end());
         }
         else {
@@ -397,13 +368,43 @@ std::list<Move> myers_moves(const Area& area)
 std::vector<Patch> myers(const std::vector<std::string>& a, const std::vector<std::string>& b)
 {
     auto s= myers_moves({a,b});
-    int offset = LINE_OFFSET;
+    long offset = LINE_OFFSET;
     std::vector<Patch> patches;
     patches.reserve(s.size());
     std::transform(s.begin(), s.end(), std::back_insert_iterator(patches), [&offset,&b](const auto& p) {
-        //std::cerr << "Move from " << p.m_s << " to " << p.m_t << '\n';
+        std::cerr << p.m_s << " -> " << p.m_t << '\n';
         return p.make_patch(b, offset);
     });
+    return patches;
+}
+
+std::vector<Patch> optimize(std::vector<Move>& s, const std::vector<std::string>& b)
+{
+    std::vector<Patch> patches;
+    if (!s.empty()) {
+        long offset = LINE_OFFSET;
+        std::vector<Move> optimized;
+        Move& last = s.front();
+        // Optimize moves
+        for (size_t i{1}; i<s.size(); ++i) {
+            auto& p = s[i];
+            if (p.m_s == last.m_t && p.m_s.y == p.m_t.y) {
+                last.m_t = p.m_t;
+            }
+            else {
+                optimized.push_back(last);
+                last = p;
+            }
+        }
+        optimized.push_back(last);
+        patches.reserve(optimized.size());
+        for(const auto& p : optimized) {
+            auto tp = p.make_patch(b, offset);
+            patches.push_back(tp);
+            tp.write(std::cerr);
+            std::cerr << '\n';
+        }
+    }
     return patches;
 }
 
@@ -432,13 +433,16 @@ bool compare(const std::vector<std::string>& a, const std::vector<std::string>& 
         std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << '\n';
         return false;
     }
+    else {
+        std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << "...OK!" << '\n';
+    }
     bool r{true};
 
-    for (auto i{0}; i<a.size(); ++i) {
+    for (auto i{0u}; i<a.size(); ++i) {
         if (a[i] != b[i]) {
-            //    std::cerr << "Line " << i << " differs:";
-            //   std::cerr << "\tA:" << a[i] << '\n';
-            //   std::cerr << "\tB:" << b[i] << '\n';
+            std::cerr << "Line " << i << " differs:";
+            std::cerr << "\tA:" << a[i] << '\n';
+            std::cerr << "\tB:" << b[i] << '\n';
             r= false;
         }
     }
@@ -454,16 +458,43 @@ int main()
         std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
         auto patches = myers(a,b);
         for (const auto& p : patches) {
-            p.write(std::cout);
-            std::cout << '\n';
-        }
-        //exit(0);
-        for (const auto& p : patches) {
+            p.write(std::cerr);
+            std::cerr << '\n';
             p.apply(a);
         }
         std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
-
+        //for (const auto& l : a) {
+        //    std::cout<< l << '\n';
+        //}
+        exit(0);
     }
+    /* {
+         auto a = readFile("/home/attila/before.json");
+         auto b = readFile("/home/attila/after.json");
+         std::cerr << "Strip prefix\n";
+         int idx{0};
+         while(a[idx] == b[idx]) {
+             ++idx;
+         }
+         a.erase(a.begin(), a.begin()+ idx);
+         b.erase(b.begin(), b.begin()+ idx);
+         std::cerr <<  "Strip suffix\n";
+         auto a_idx{a.size()-1};
+         auto b_idx{b.size()-1};
+         while(a[a_idx] == b[b_idx]) {
+             --a_idx;
+             --b_idx;
+         }
+         a.erase(a.begin()+a_idx+1, a.end());
+         b.erase(b.begin()+b_idx+1, b.end());
+         std::cerr << "Diffing\n";
+         std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
+         auto patches = myers(a,b);
+         for (const auto& p : patches) {
+             p.apply(a);
+         }
+         std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
+     }*/
     {
         auto a = readFile("/home/attila/x.txt");
         auto b = readFile("/home/attila/y.txt");
