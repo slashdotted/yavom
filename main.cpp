@@ -13,6 +13,7 @@
 
 
 #define TK(v) (v+max)
+#define LINE_OFFSET 0
 
 struct Point {
     unsigned int x;
@@ -47,7 +48,7 @@ std::ostream& operator<<(std::ostream& o, const Point& p)
 }
 
 
-enum class OP {NOP, INSERT, DELETE};
+enum class OP {/*NOP, */INSERT, DELETE};
 
 struct Patch {
     OP m_op;
@@ -60,11 +61,25 @@ struct Patch {
         switch(m_op) {
         case OP::DELETE:
             for (auto i{m_start}; i< m_end; ++i) {
-                a.erase(a.begin() + i);
+                a.erase(a.begin() + m_start - LINE_OFFSET);
             }
             break;
         case OP::INSERT:
-            a.insert(a.begin() + m_start, m_value);
+            a.insert(a.begin() + m_start - LINE_OFFSET, m_value);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void write(std::ostream& o) const
+    {
+        switch(m_op) {
+        case OP::DELETE:
+            o << m_start << '-' << m_end;
+            break;
+        case OP::INSERT:
+            o << m_start << '+' << m_value;
             break;
         default:
             break;
@@ -120,10 +135,7 @@ struct Move {
             offset += 1;
             return Patch{OP::INSERT, b.at(m_s.y), o + m_s.x, 0};
         }
-        default:
-            break;
         }
-        return Patch{OP::NOP, "", m_s.x, m_t.x};
     }
 
 
@@ -199,7 +211,6 @@ struct Area {
 
     int rdiagonal(int k) const noexcept
     {
-        //return (N()-M())-k;
         return (-k + (N() - M()));
     }
 
@@ -210,7 +221,7 @@ struct Area {
 
     bool abs_contains(const Point& p) const noexcept
     {
-        return p.x >= 0 && p.x <= N() && p.y >= 0 && p.y <= M();
+        return p.x <= static_cast<unsigned int>(N()) && p.y <= static_cast<unsigned int>(M());
     }
 
     const Point& tl() const noexcept
@@ -311,32 +322,6 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
             }
         }
 
-        /*  if (true) {
-              std::cerr << "d=" << d << '\n';
-              std::cerr << "Current points so far... forward:";
-              for (int k = min_valid_k; k<= max_valid_k; k+=1) {
-                  auto x = V_fwd[TK(k)];
-                  auto y = x -k;
-                  Point rp = area.abs_point({x,y});
-                  std::cerr <<  "(" << rp.x << ',' << rp.y << "), "  ;
-              }
-
-              std::cerr << "\nCurrent points so far... backward:";
-              for (int k = min_valid_k; k<= max_valid_k; k+=1) {
-                  auto x = V_bwd[TK(k)];
-                  auto y = x -k;
-                  Point rp = area.abs_point_r({x,y});
-                  std::cerr << "(" << rp.x << ',' << rp.y << "), " ;
-              }
-              std::cerr << '\n';
-              std::string s;
-              std::getline(std::cin, s);
-          }*/
-
-
-
-
-
         // Compare V_fwd and V_bwd (if the sum on each diagonal is > N we met somewhere)
         if (d >= abs(area.N() - area.M())) {
             for (int k = min_valid_k; k<= max_valid_k; k+=1) {
@@ -347,11 +332,8 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
                 auto byb = bxb - rk;
                 Point abfw = area.abs_point({bxf,byf});
                 Point abbw = area.abs_point_r({bxb, byb});
-
                 if (abfw.x >= abbw.x) {
-                    //std::cerr << "d=" << d << " on forward diagonal " << k << " forward went to " << abfw << " while backward went to " << abbw <<'\n';
                     if (area.contains_abs(abfw) && area.contains_abs(abbw)) {
-                        // std::cerr << "Found!\n" << abbw << " to " << abfw << '\n';
                         return {abbw, abfw};
                     }
                 }
@@ -369,24 +351,26 @@ std::list<Move> myers_moves(const Area& area)
     std::list<Move> result;
 
     if (area.N() == 0) {
-        //std::cerr << "Special case: from " << area.tl() << " to " << area.br() << " N=0 (insertions only)\n";
         Point prev{area.tl()};
-        for (unsigned int y{0}; y < area.M(); ++y) {
+        for (unsigned int y{0}; y < static_cast<unsigned int>(area.M()); ++y) {
             auto next = prev.offset(0,1);
-            //std::cerr << "Gen INSERT " << prev << " to " << next << '\n';
+            std::cerr << "Gen INSERT " << area.b(prev.y - area.tl().y) << " at " << prev << " to " << next << '\n';
             result.insert(result.end(), Move{OP::INSERT, prev, next});
             prev = next;
         }
     }
     else if (area.M() == 0) {
         //std::cerr << "Special case: from " << area.tl() << " to " << area.br() << " M=0 (deletions only)\n";
-        Point prev{area.tl()};
-        for (unsigned int x{0}; x < area.N(); ++x) {
-            auto next = prev.offset(1,0);
-            //std::cerr << "Gen DELETE " << prev << " to " << next << '\n';
-            result.insert(result.end(), Move{OP::DELETE, prev, next});
-            prev = next;
-        }
+        std::cerr << "Gen DELETE from " << area.tl().x << " to  " << area.br().x << '\n';
+        result.insert(result.end(), Move{OP::DELETE, area.tl(), area.br()});
+        //Point prev{area.tl()};
+        /*      int range
+              for (unsigned int x{0}; x < static_cast<unsigned int>(area.N()); ++x) {
+                  auto next = prev.offset(1,0);
+                  std::cerr << "Gen DELETE " << area.a(prev.x - area.tl().x) << " at " << prev << " to " << next << '\n';
+                  result.insert(result.end(), Move{OP::DELETE, prev, next});
+                  prev = next;
+              }*/
 
     }
     else {
@@ -400,7 +384,7 @@ std::list<Move> myers_moves(const Area& area)
             auto top_area = myers_moves(Area{area, area.tl(), top});
             auto bottom_area = myers_moves(Area{area, bottom, area.br()});
             result.insert(result.begin(), top_area.begin(), top_area.end());
-            result.insert(result.end(), Move{OP::NOP, top, bottom});
+            //result.insert(result.end(), Move{OP::NOP, top, bottom});
             result.insert(result.end(), bottom_area.begin(), bottom_area.end());
         }
         else {
@@ -413,10 +397,11 @@ std::list<Move> myers_moves(const Area& area)
 std::vector<Patch> myers(const std::vector<std::string>& a, const std::vector<std::string>& b)
 {
     auto s= myers_moves({a,b});
-    int offset = 0;
+    int offset = LINE_OFFSET;
     std::vector<Patch> patches;
     patches.reserve(s.size());
     std::transform(s.begin(), s.end(), std::back_insert_iterator(patches), [&offset,&b](const auto& p) {
+        //std::cerr << "Move from " << p.m_s << " to " << p.m_t << '\n';
         return p.make_patch(b, offset);
     });
     return patches;
@@ -441,29 +426,90 @@ std::vector<std::string> readFile(const std::string& filePath)
     return data;
 }
 
+bool compare(const std::vector<std::string>& a, const std::vector<std::string>& b)
+{
+    if (a.size() != b.size()) {
+        std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << '\n';
+        return false;
+    }
+    bool r{true};
+
+    for (auto i{0}; i<a.size(); ++i) {
+        if (a[i] != b[i]) {
+            //    std::cerr << "Line " << i << " differs:";
+            //   std::cerr << "\tA:" << a[i] << '\n';
+            //   std::cerr << "\tB:" << b[i] << '\n';
+            r= false;
+        }
+    }
+    return r;
+}
+
 
 int main()
 {
-    if (false) {
+    {
         auto a = readFile("/home/attila/before.json");
         auto b = readFile("/home/attila/after.json");
-        std::cerr << "Result before patching: ";
-        for (const auto& c : b) {
-            std::cerr << c;
-        }
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
         auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.write(std::cout);
+            std::cout << '\n';
+        }
+        //exit(0);
         for (const auto& p : patches) {
             p.apply(a);
         }
-        std::cerr << "Result after patching:\n";
-        for (const auto& c : a) {
-            std::cout << c << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
+
+    }
+    {
+        auto a = readFile("/home/attila/x.txt");
+        auto b = readFile("/home/attila/y.txt");
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
+        auto patches = myers(a,b);
+        /*for (const auto& p : patches) {
+            p.write(std::cerr);
+            std::cerr << '\n';
+        };*/
+        for (const auto& p : patches) {
+
+            /*std::cout << "****** Before:\n";
+            {
+                int ln{0};
+                for (const auto& c : a) {
+                    std::cout << ln++ << ": " <<  c << '\n';
+                }
+            }
+            std::cout << "****** Patch:";
+            p.write(std::cout);
+            std::cout << '\n';
+            */
+            p.apply(a);
+            /*
+                        {
+                            int ln{0};
+                            for (const auto& c : a) {
+                                std::cout << ln++ << ": " <<  c << '\n';
+                            }
+                        }
+                        // std::cout << "******";
+                        // std::string wait;
+                        //std::getline(std::cin, wait);
+              */
         }
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
+        //      for (const auto& c : a) {
+        //        std::cout << c << '\n';
+        //   }
+        //exit(0);
     }
     {
         std::cerr << "************ N < M ************\n";
         auto a = readFile("/home/attila/secondo.txt");
         auto b = readFile("/home/attila/primo.txt");
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
         std::cerr << "Result before patching: ";
         for (const auto& c : b) {
             std::cerr << c;
@@ -477,12 +523,14 @@ int main()
             std::cout << c;
         }
         std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
     }
 
     {
         std::cerr << "************ N > M ************\n";
         auto a = readFile("/home/attila/primo.txt");
         auto b = readFile("/home/attila/secondo.txt");
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
         std::cerr << "Result before patching: ";
         for (const auto& c : b) {
             std::cerr << c;
@@ -496,11 +544,13 @@ int main()
             std::cout << c;
         }
         std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
     }
     {
         std::cerr << "************ N == M ************\n";
         auto a = readFile("/home/attila/primo.txt");
         auto b = readFile("/home/attila/terzo.txt");
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
         std::cerr << "Result before patching: ";
         for (const auto& c : b) {
             std::cerr << c;
@@ -514,11 +564,13 @@ int main()
             std::cout << c;
         }
         std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
     }
     {
         std::cerr << "************ N === M ************\n";
         auto a = readFile("/home/attila/secondo.txt");
         auto b = readFile("/home/attila/secondo.txt");
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
         std::cerr << "Result before patching: ";
         for (const auto& c : b) {
             std::cerr << c;
@@ -532,5 +584,64 @@ int main()
             std::cout << c;
         }
         std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
+    }
+    {
+        std::cerr << "************ N === empty ************\n";
+        auto a = readFile("/home/attila/secondo.txt");
+        auto b = std::vector<std::string>();
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+        for (const auto& c : a) {
+            std::cout << c;
+        }
+        std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
+    }
+    {
+        std::cerr << "************ empty === M ************\n";
+        auto a = std::vector<std::string>();
+        auto b = readFile("/home/attila/secondo.txt");
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+
+        std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
+    }
+    {
+        std::cerr << "************ empty == empty ************\n";
+        auto a = std::vector<std::string>();
+        auto b = std::vector<std::string>();
+        std::cerr << "Before: equals? " << std::boolalpha << compare(a,b) << '\n';
+        std::cerr << "Result before patching: ";
+        for (const auto& c : b) {
+            std::cerr << c;
+        }
+        auto patches = myers(a,b);
+        for (const auto& p : patches) {
+            p.apply(a);
+        }
+        std::cerr << "\nResult after patching:  ";
+        for (const auto& c : a) {
+            std::cout << c;
+        }
+        std::cerr << '\n';
+        std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
     }
 }
