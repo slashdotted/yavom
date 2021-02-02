@@ -54,18 +54,16 @@ struct Patch {
     OP m_op;
     std::string m_value;
     long m_start;
-    long m_end;
+    long m_count;
 
     void apply(std::vector<std::string>& a) const
     {
         switch(m_op) {
         case OP::DELETE:
-            for (auto i{m_start}; i< m_end; ++i) {
-                a.erase(a.begin() + m_start - LINE_OFFSET);
-            }
+            a.erase(a.begin() + m_start, a.begin() + m_start + m_count);
             break;
         case OP::INSERT:
-            a.insert(a.begin() + m_start - LINE_OFFSET, m_value);
+            a.insert(a.begin() + m_start, m_value);
             break;
         default:
             break;
@@ -76,8 +74,8 @@ struct Patch {
     {
         switch(m_op) {
         case OP::DELETE:
-            if (m_end - m_start > 1) {
-                o << m_start << '-' << m_end;
+            if (m_count > 1) {
+                o << m_start << '-' << m_count;
             }
             else {
                 o << m_start << '-';
@@ -108,13 +106,19 @@ struct Move {
     {
         switch(m_op) {
         case OP::DELETE: {
+            assert(m_t.y == m_s.y);
             auto o = offset;
-            offset -= (m_t.x - m_s.x);
-            return Patch{OP::DELETE, "", o + m_s.x, o + m_t.x};
+            auto count = (m_t.x - m_s.x);
+            offset -= count;
+            //std::cerr << "DELETION from " << m_s.x << " to " << m_t.x << " count=" << count << " adjusted " << o + m_s.x << '\n';
+            //std::cerr << "Offset is now "<< offset << '\n';
+            return Patch{OP::DELETE, "", o + m_s.x, count};
         }
         case OP::INSERT: {
+            assert(m_t.x == m_s.x);
             auto o = offset;
             offset += 1;
+            //std::cerr << "Offset is now "<< offset << '\n';
             return Patch{OP::INSERT, b.at(m_s.y), o + m_s.x, 0};
         }
         }
@@ -220,6 +224,15 @@ struct Area {
         return m_br;
     }
 
+    const std::vector<std::string>& a() const noexcept
+    {
+        return m_a;
+    }
+    const std::vector<std::string>& b() const noexcept
+    {
+        return m_b;
+    }
+
 private:
     void trim()
     {
@@ -239,8 +252,16 @@ private:
     Point m_br{0,0};
 };
 
+bool operator==(const Area& a, const Area b)
+{
+    return a.tl() == b.tl() && a.br() == b.br();
+}
 
 
+bool operator!=(const Area& a, const Area b)
+{
+    return !(a==b);
+}
 
 #define TK(v) (v+max)
 /**
@@ -334,28 +355,36 @@ std::tuple<Point,Point> myers_middle_move(const Area& area)
     assert(false); // This can't be
 }
 
-std::list<Move> myers_moves(const Area& area)
+std::vector<Move> myers_moves(const Area& area)
 {
-    std::list<Move> result;
+    //std::cerr << "Processing area " << area.tl() << ',' << area.br() << '\n';
+    std::vector<Move> result;
+    if (area.N() == 0 && area.M() == 0) {
+        return {};
+    }
     if (area.N() == 0) {
         Point prev{area.tl()};
-        for (unsigned int y{0}; y < static_cast<unsigned int>(area.M()); ++y) {
+        //std::cerr << "\t\tINSERT RUN " << area.tl() << " to " << area.br() << '\n';
+        for (long y{0}; y < area.M(); ++y) {
             auto next = prev.offset(0,1);
             result.push_back(Move{OP::INSERT, prev, next});
             prev = next;
         }
     }
     else if (area.M() == 0) {
-        //std::cerr << "DELETE RUN " << area.tl() << " to " << area.br() << '\n';
+        //std::cerr << "\t\tDELETE RUN " << area.tl() << " to " << area.br() << '\n';
+        //std::cerr << area.a()[area.tl().x] << '\n' << area.b()[area.tl().y] << '\n';
         result.push_back(Move{OP::DELETE, area.tl(), area.br()});
     }
     else {
         auto middle = myers_middle_move(area);
         const auto& [top,bottom] = middle;
         if (!top.is_null() || !bottom.is_null()) {
+            //std::cerr << "\tProcessing TOP area " << area.tl() << ',' << top << '\n';
             auto top_area = myers_moves(Area{area, area.tl(), top});
+            result.insert(result.end(), top_area.begin(), top_area.end());
+            //std::cerr << "\tProcessing BOTTOM area " << bottom << ',' << area.br() << '\n';
             auto bottom_area = myers_moves(Area{area, bottom, area.br()});
-            result.insert(result.begin(), top_area.begin(), top_area.end());
             result.insert(result.end(), bottom_area.begin(), bottom_area.end());
         }
         else {
@@ -365,44 +394,60 @@ std::list<Move> myers_moves(const Area& area)
     return result;
 }
 
-std::vector<Patch> myers(const std::vector<std::string>& a, const std::vector<std::string>& b)
+std::vector<Patch> basic_myers(const std::vector<std::string>& a, const std::vector<std::string>& b)
 {
     auto s= myers_moves({a,b});
     long offset = LINE_OFFSET;
     std::vector<Patch> patches;
     patches.reserve(s.size());
     std::transform(s.begin(), s.end(), std::back_insert_iterator(patches), [&offset,&b](const auto& p) {
-        std::cerr << p.m_s << " -> " << p.m_t << '\n';
+        //std::cerr << p.m_s << " -> " << p.m_t << '\n';
         return p.make_patch(b, offset);
     });
     return patches;
 }
 
-std::vector<Patch> optimize(std::vector<Move>& s, const std::vector<std::string>& b)
+std::vector<Patch> myers(const std::vector<std::string>& a, const std::vector<std::string>& b)
 {
+    auto s= myers_moves({a,b});
     std::vector<Patch> patches;
     if (!s.empty()) {
         long offset = LINE_OFFSET;
         std::vector<Move> optimized;
-        Move& last = s.front();
-        // Optimize moves
-        for (size_t i{1}; i<s.size(); ++i) {
+        // Optimize deletion
+        Move* last_deletion{nullptr};
+        for (size_t i{0}; i<s.size(); ++i) {
             auto& p = s[i];
-            if (p.m_s == last.m_t && p.m_s.y == p.m_t.y) {
-                last.m_t = p.m_t;
+            if (p.m_op == OP::DELETE) {
+                if (!last_deletion) {
+                    last_deletion = &p;
+                }
+                else {
+                    if (p.m_s == last_deletion->m_t && p.m_s.y == p.m_t.y) {
+                        last_deletion->m_t = p.m_t;
+                    }
+                    else {
+                        optimized.push_back(*last_deletion);
+                        last_deletion = &p;
+                    }
+                }
             }
             else {
-                optimized.push_back(last);
-                last = p;
+                if (last_deletion) {
+                    optimized.push_back(*last_deletion);
+                    last_deletion = nullptr;
+                }
+                optimized.push_back(p);
             }
         }
-        optimized.push_back(last);
+        if (last_deletion) {
+            optimized.push_back(*last_deletion);
+            last_deletion = nullptr;
+        }
         patches.reserve(optimized.size());
         for(const auto& p : optimized) {
             auto tp = p.make_patch(b, offset);
             patches.push_back(tp);
-            tp.write(std::cerr);
-            std::cerr << '\n';
         }
     }
     return patches;
@@ -463,9 +508,9 @@ int main()
             p.apply(a);
         }
         std::cerr << "After: equals? " << std::boolalpha << compare(a,b) << '\n';
-        //for (const auto& l : a) {
-        //    std::cout<< l << '\n';
-        //}
+        /*for (const auto& l : a) {
+            std::cout<< l << '\n';
+        }*/
         exit(0);
     }
     /* {
