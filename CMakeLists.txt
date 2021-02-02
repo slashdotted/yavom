@@ -6,4 +6,5 @@ set(CMAKE_CXX_STANDARD 17
     )
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(arraydiff main.cpp)
+add_executable(arraydifftest test.cpp diff.h)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/testdata/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/testdata/)
