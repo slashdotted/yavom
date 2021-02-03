@@ -32,6 +32,10 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#ifdef YAVOM_MULTITHREAD
+#include <thread>
+#include <future>
+#endif
 
 #define TK(v) (v+max)
 
@@ -217,6 +221,143 @@ void apply_move(const Move<K>& m, C<K,Args...>& a)
     }
 }
 
+#ifdef YAVOM_MULTITHREAD
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ns_per_step)
+{
+    auto max{area.M() + area.N()};
+    std::vector<long> V_fwd{static_cast<unsigned int>(2*max+1), 0};
+    V_fwd.resize(2*max+1);
+    V_fwd[1] = 0;
+    assert(V_fwd.capacity() == static_cast<unsigned long>(2*max+1));
+    long x_fwd{0},y_fwd{0};
+
+    std::vector<long> V_bwd{static_cast<unsigned int>(2*max+1), 0};
+    V_bwd.resize(2*max+1);
+    V_bwd[1] = 0;
+    assert(V_bwd.capacity() == static_cast<unsigned long>(2*max+1));
+    long x_bwd{0},y_bwd{0};
+
+    auto start_time = std::chrono::high_resolution_clock::now();
+    for (int d {0}; d <= static_cast<long>(max); ++d) {
+        auto min_valid_k = -d + std::max(0l, d-static_cast<long>(area.M())) * 2;
+        auto max_valid_k = d - std::max(0l, d-static_cast<long>(area.N())) * 2 ;
+        enum class StepRetStatus { SUCCESS, NEED_MORE, EXHAUSTED };
+        using StepRetType = std::tuple<StepRetStatus, std::tuple<Point,Point>>;
+        auto ft = std::async([&]() -> StepRetType {
+            for (long k = min_valid_k; k<= max_valid_k; k+=2)
+            {
+                long px{0};
+                // Move downward or to the right
+                if (k == -d || ((k != d )&& (V_fwd[TK(k-1)] < V_fwd[TK(k+1)]))) {
+                    px = x_fwd = V_fwd[TK(k+1)];
+                }
+                else {
+                    px = V_fwd[TK(k-1)];
+                    x_fwd = px + 1;
+                }
+                y_fwd = x_fwd - k;
+                // Follow diagonal as long as possible
+                while ((x_fwd < area.N()) && (y_fwd < area.M()) && (area.a(x_fwd) == area.b(y_fwd))) {
+                    ++x_fwd;
+                    ++y_fwd;
+                }
+                // Store best x position on this diagonal
+                V_fwd[TK(k)] = x_fwd;
+
+                // Check if we crossed the backward move
+                if (d > 0) {
+                    const auto rk = area.rdiagonal(k);
+                    if (x_fwd >= (area.N() - V_bwd[TK(rk)])) {
+                        Point top = area.abs_point(px, px -k);
+                        if (area.contains_abs(top)) {
+                            Point bottom = area.abs_point(x_fwd,y_fwd);
+                            if (area.contains_abs(bottom)) {
+                                return {StepRetStatus::SUCCESS, {top,bottom}};
+                            }
+                        }
+                    }
+                }
+
+                if (x_fwd >= area.N() and y_fwd >= area.M()) {
+                    return {StepRetStatus::EXHAUSTED, {{0,0},{0,0}}};
+                }
+            }
+            return {StepRetStatus::NEED_MORE, {{0,0},{0,0}}};
+        });
+
+        // Backward step
+        auto bt = std::async([&]() -> StepRetType {
+            for (long k = min_valid_k; k<= max_valid_k; k+=2)
+            {
+                long px{0};
+                // Move downward or to the right
+                if (k == -d || ((k != d )&& (V_bwd[TK(k-1)] < V_bwd[TK(k+1)]))) {
+                    px = x_bwd = V_bwd[TK(k+1)];
+                }
+                else {
+                    px = V_bwd[TK(k-1)];
+                    x_bwd = px + 1;
+                }
+                y_bwd = x_bwd - k;
+                // Follow diagonal as long as possible
+                while ((x_bwd < area.N()) && (y_bwd < area.M()) && (area.ra(x_bwd) == area.rb(y_bwd))) {
+                    ++x_bwd;
+                    ++y_bwd;
+                }
+                // Store best position on this diagonal
+                V_bwd[TK(k)] = x_bwd;
+
+                // Check if we crossed the forward move
+                if (d > 0) {
+                    const auto rk = area.rdiagonal(k);
+                    if (x_bwd >= (area.N() - V_fwd[TK(rk)])) {
+                        Point top = area.abs_point_r(x_bwd,y_bwd);
+                        if (area.contains_abs(top)) {
+                            Point bottom = area.abs_point_r(px,px-k);
+                            if (area.contains_abs(bottom)) {
+                                return {StepRetStatus::SUCCESS, {top,bottom}};
+                            }
+                        }
+                    }
+                }
+                if (x_bwd >= area.N() and y_bwd >= area.M()) {
+                    return {StepRetStatus::EXHAUSTED, {{0,0},{0,0}}};
+                }
+            }
+            return {StepRetStatus::NEED_MORE, {{0,0},{0,0}}};
+        });
+
+
+        const auto& [ fstatus, tf ] = ft.get();
+        const auto& [ bstatus, tb ] = bt.get();
+
+        if (fstatus == StepRetStatus::SUCCESS) {
+            return tf;
+        }
+        else if (bstatus == StepRetStatus::SUCCESS) {
+            return tb;
+        }
+        else if (fstatus == StepRetStatus::EXHAUSTED || bstatus == StepRetStatus::EXHAUSTED) {
+            assert(false);
+        }
+
+        if (ns_per_step > 0) {
+            if (area.N() > 2 && area.M() > 2) {
+                auto end_time = std::chrono::high_resolution_clock::now();
+                if (std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count() > ns_per_step) {
+                    auto n = std::max(1L, area.N() / 2);
+                    auto m = std::max(1L, area.M() / 2);
+                    const auto& [tlx, tly] = area.tl();
+                    return {{tlx+n, tly+m}, {tlx+n+1, tly+m+1}};
+                }
+            }
+        }
+    }
+    assert(false); // This can't be
+    return {};
+}
+#else
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
 std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ns_per_step)
 {
@@ -336,6 +477,7 @@ std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ns_per_ste
     assert(false); // This can't be
     return {};
 }
+#endif
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
 void myers_moves(Area<C,K> area, std::vector<Move<K>>& result, long ns_per_step)
