@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#ifdef YAVOM_MULTITHREAD
+#ifdef YAVOM_ASYNC
 #include <thread>
 #include <future>
 #endif
@@ -221,7 +221,7 @@ void apply_move(const Move<K>& m, C<K,Args...>& a)
     }
 }
 
-#ifdef YAVOM_MULTITHREAD
+#ifdef YAVOM_ASYNC
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
 std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ns_per_step)
 {
