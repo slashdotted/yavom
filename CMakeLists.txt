@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(yavom test.cpp diff.h)
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/testdata/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/testdata/)
 
+option(USE_TRANSPOSITION "(Experimental) Allow for swapping source and target during computation" OFF) #OFF by default
+if(USE_TRANSPOSITION)
+    target_compile_definitions(yavom PRIVATE YAVOM_TRANSPOSE="1")
+endif(USE_TRANSPOSITION)
+
 option(USE_MULTITHREAD "(Experimental) Use separate async for forward/backward steps" OFF) #OFF by default
 if(USE_ASYNC)
     find_package (Threads)

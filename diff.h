@@ -536,12 +536,19 @@ std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ns
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
 std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step)
 {
+#ifdef YAVOM_TRANSPOSE
     const auto& longest = a.size() > b.size() ? a : b;
     const auto& shortest = a.size() > b.size() ? b : a;
     bool reversed = (&longest == &a);
-    Area<C,K> all{shortest,longest};
+#else
+    const auto& longest = b;
+    const auto& shortest = a;
+    constexpr bool reversed = false;
+#endif
+    Area<C,K> all {shortest,longest};
     std::vector<Move<K>> s;
     myers_moves(all, s, ns_per_step);
+#ifdef YAVOM_TRANSPOSE
     std::for_each (s.begin(), s.end(), [&longest,&shortest,&reversed](auto& m) {
         auto& [m_op, m_s, m_t, v] = m;
         switch(m_op) {
@@ -563,6 +570,7 @@ std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b
         }
         }
     });
+#endif
     return s;
 }
 
