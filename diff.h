@@ -40,26 +40,13 @@
 namespace syscall {
 namespace yavom {
 
+// Basic definitions
+
 enum class OP {INSERT, DELETE};
 using Point=std::tuple<long,long>;
 
 template<typename K>
 using Move=std::tuple<OP,Point,Point,std::vector<K>>;
-
-template<template<typename, typename ... > typename C, typename K, typename ... Args>
-void apply_move(const Move<K>& m, C<K,Args...>& a)
-{
-    const auto& [m_op, m_s, m_t, v] = m;
-    switch(m_op) {
-    case OP::DELETE: {
-        auto count{std::get<0>(m_t) - std::get<0>(m_s)};
-        a.erase(a.begin() + std::get<1>(m_s), a.begin() + std::get<1>(m_s) + count);
-    }
-    case OP::INSERT: {
-        a.insert(a.begin() + std::get<1>(m_s), v.begin(), v.end());
-    }
-    }
-}
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
 struct Area {
@@ -188,6 +175,47 @@ struct Area {
     long m_N{0};
     long m_M{0};
 };
+
+
+// Forward declarations
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+void apply_move(const Move<K>& m, C<K,Args...>& a);
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ns_per_step);
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+void myers_moves(Area<C,K> area, std::vector<Move<K>>& result, long ns_per_step);
+
+template<typename P>
+void inner_swap(P& p);
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step = -1);
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step = -1);
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+void myers_fill(const C<K,Args...>& b, std::vector<Move<K>>& s);
+
+// Definitions
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+void apply_move(const Move<K>& m, C<K,Args...>& a)
+{
+    const auto& [m_op, m_s, m_t, v] = m;
+    switch(m_op) {
+    case OP::DELETE: {
+        auto count{std::get<0>(m_t) - std::get<0>(m_s)};
+        a.erase(a.begin() + std::get<1>(m_s), a.begin() + std::get<1>(m_s) + count);
+    }
+    case OP::INSERT: {
+        a.insert(a.begin() + std::get<1>(m_s), v.begin(), v.end());
+    }
+    }
+}
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
 std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ns_per_step)
@@ -356,7 +384,15 @@ void inner_swap(P& p)
 }
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
-std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step = -1)
+std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step)
+{
+    auto s = myers_unfilled(a, b, ns_per_step);
+    myers_fill(b, s);
+    return s;
+}
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step)
 {
     const auto& longest = a.size() > b.size() ? a : b;
     const auto& shortest = a.size() > b.size() ? b : a;
@@ -364,53 +400,6 @@ std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ns
     Area<C,K> all{shortest,longest};
     std::vector<Move<K>> s;
     myers_moves(all, s, ns_per_step);
-    std::for_each (s.begin(), s.end(), [&longest,&shortest, &reversed](auto& m) {
-        auto& [m_op, m_s, m_t, v] = m;
-        switch(m_op) {
-        case OP::INSERT: {
-            if (reversed) {
-                m_op = OP::DELETE;
-                inner_swap(m_s);
-                inner_swap(m_t);
-            }
-            else {
-                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
-                v.insert(v.begin(), longest.begin() + std::get<1>(m_s), longest.begin() + std::get<1>(m_s) + count);
-            }
-            break;
-        }
-        case OP::DELETE: {
-            if (reversed) {
-                m_op = OP::INSERT;
-                inner_swap(m_s);
-                inner_swap(m_t);
-                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
-                v.insert(v.begin(), shortest.begin() + std::get<1>(m_s), shortest.begin() + std::get<1>(m_s) + count);
-            }
-            break;
-        }
-        }
-    });
-    return s;
-}
-
-template<template<typename, typename ... > typename C, typename K, typename ... Args>
-std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b, long ns_per_step = -1)
-{
-    const auto& longest = a.size() > b.size() ? a : b;
-    const auto& shortest = a.size() > b.size() ? b : a;
-    Area<C,K> all{shortest,longest};
-    std::vector<Move<K>> s;
-    myers_moves(all, s, ns_per_step);
-    return s;
-}
-
-template<template<typename, typename ... > typename C, typename K, typename ... Args>
-void myers_fill(const C<K,Args...>& a, const C<K,Args...>& b, std::vector<Move<K>>& s)
-{
-    const auto& longest = a.size() > b.size() ? a : b;
-    const auto& shortest = a.size() > b.size() ? b : a;
-    bool reversed = (&longest == &a);
     std::for_each (s.begin(), s.end(), [&longest,&shortest,&reversed](auto& m) {
         auto& [m_op, m_s, m_t, v] = m;
         switch(m_op) {
@@ -420,10 +409,6 @@ void myers_fill(const C<K,Args...>& a, const C<K,Args...>& b, std::vector<Move<K
                 inner_swap(m_s);
                 inner_swap(m_t);
             }
-            else {
-                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
-                v.insert(v.begin(), longest.begin() + std::get<1>(m_s), longest.begin() + std::get<1>(m_s) + count);
-            }
             break;
         }
         case OP::DELETE: {
@@ -431,9 +416,23 @@ void myers_fill(const C<K,Args...>& a, const C<K,Args...>& b, std::vector<Move<K
                 m_op = OP::INSERT;
                 inner_swap(m_s);
                 inner_swap(m_t);
-                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
-                v.insert(v.begin(), shortest.begin() + std::get<1>(m_s), shortest.begin() + std::get<1>(m_s) + count);
             }
+            break;
+        }
+        }
+    });
+    return s;
+}
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+void myers_fill(const C<K,Args...>& b, std::vector<Move<K>>& s)
+{
+    std::for_each (s.begin(), s.end(), [&b](auto& m) {
+        auto& [m_op, m_s, m_t, v] = m;
+        switch(m_op) {
+        case OP::INSERT: {
+            auto count{std::get<1>(m_t) - std::get<1>(m_s)};
+            v.insert(v.begin(), b.begin() + std::get<1>(m_s), b.begin() + std::get<1>(m_s) + count);
             break;
         }
         }

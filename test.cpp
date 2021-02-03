@@ -73,9 +73,10 @@ auto main() -> int
                     std::cerr << "Comparing (two steps) " << fa << " with " << fb << "... ";
                     auto a = readFile(basePath+ fa);
                     auto b = readFile(basePath+ fb);
-                    auto moves = myers_unfilled(a,b, 100'000);
+                    auto moves = myers_unfilled(a,b, 1'000'000);
                     std::cerr << moves.size() << " moves...";
-                    myers_fill(a, b, moves);
+                    myers_fill(b, moves);
+                    std::cerr << " filled...";
                     for (const auto& m : moves) {
                         apply_move(m, a);
                     }
@@ -96,7 +97,7 @@ auto main() -> int
                     std::cerr << "Comparing (single step) " << fa << " with " << fb << "...";
                     auto a = readFile(basePath+ fa);
                     auto b = readFile(basePath+ fb);
-                    auto moves = myers(a,b, 100'000);
+                    auto moves = myers(a,b, 1'000'000);
                     for (const auto& m : moves) {
                         apply_move(m, a);
                     }
