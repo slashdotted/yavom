@@ -33,7 +33,7 @@
 
 using namespace syscall::yavom;
 
-std::vector<std::string> readFile(const std::string& filePath)
+auto readFile(const std::string& filePath) -> std::vector<std::string>
 {
     std::vector<std::string> data;
     std::ifstream inf{filePath};
@@ -49,16 +49,15 @@ std::vector<std::string> readFile(const std::string& filePath)
     return data;
 }
 
-bool compare(const std::vector<std::string>& a, const std::vector<std::string>& b)
+auto compare(const std::vector<std::string>& a, const std::vector<std::string>& b) -> bool
 {
     if (a.size() != b.size()) {
         std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << '\n';
         return false;
     }
-    else {
-        std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << "...OK!" << '\n';
-    }
-    for (auto i{0u}; i<a.size(); ++i) {
+    std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << "...OK!" << '\n';
+
+    for (auto i{0U}; i<a.size(); ++i) {
         if (a[i] != b[i]) {
             std::cerr << "Line " << i << " differs:\n";
             std::cerr << "\tA:" << a[i] << '\n';
@@ -69,12 +68,12 @@ bool compare(const std::vector<std::string>& a, const std::vector<std::string>& 
     return true;
 }
 
-int main()
+auto main() -> int
 {
     {
         {
             std::string basePath{"./testdata/"};
-            auto files = {"after.small", "before.small", "ben", "ban", "alpha.txt", "a.txt", "before.small", "beta.txt", "b.txt", "empty", "jsonobj_in_after.json", "jsonobj_in.json", "primo.txt", "secondo.txt", "terzo.txt", "test1", "test2", "x.txt", "y.txt"};
+            auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
             for(const auto& fa : files) {
                 for (const auto& fb : files) {
                     std::cerr << "Comparing " << fa << " with " << fb << "...";

@@ -31,6 +31,7 @@
 #include <vector>
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 
 #define TK(v) (v+max)
 
@@ -67,6 +68,7 @@ struct Area {
     {
         assert(std::get<0>(m_tl) <= std::get<0>(m_br));
         assert(std::get<1>(m_tl) <= std::get<1>(m_br));
+        trim();
     }
 
     Area(const Area& base, Point tl, Point br)
@@ -76,6 +78,7 @@ struct Area {
         assert(contains_abs(br));
         assert(std::get<0>(m_tl) <= std::get<0>(m_br));
         assert(std::get<1>(m_tl) <= std::get<1>(m_br));
+        trim();
     }
 
     const K& a(long index) const noexcept
@@ -100,11 +103,21 @@ struct Area {
 
     long N() const noexcept
     {
+        return m_N;
+    }
+
+    long M() const noexcept
+    {
+        return m_M;
+    }
+
+    long cN() const noexcept
+    {
         assert(std::get<0>(m_br) >= std::get<0>(m_tl));
         return std::get<0>(m_br) - std::get<0>(m_tl);
     }
 
-    long M() const noexcept
+    long cM() const noexcept
     {
         assert(std::get<1>(m_br) >= std::get<1>(m_tl));
         return std::get<1>(m_br) - std::get<1>(m_tl);
@@ -154,30 +167,30 @@ struct Area {
         return m_b;
     }
 
-    void trim_start() noexcept
+    void trim() noexcept
     {
         while(std::get<0>(m_tl) < std::get<0>(m_br) && std::get<1>(m_tl) < std::get<1>(m_br) && m_a[std::get<0>(m_tl)] == m_b[std::get<1>(m_tl)]) {
             ++std::get<0>(m_tl);
             ++std::get<1>(m_tl);
         }
-    }
-
-    void trim_end() noexcept
-    {
         while(std::get<0>(m_br) > std::get<0>(m_tl) && std::get<1>(m_br) > std::get<1>(m_tl) && m_a[std::get<0>(m_br)-1] == m_b[std::get<1>(m_br)-1]) {
             --std::get<0>(m_br);
             --std::get<1>(m_br);
         }
+        m_N = cN();
+        m_M = cM();
     }
 
     const C<K,Args...>& m_a;
     const C<K,Args...>& m_b;
     Point m_tl{0,0};
     Point m_br{0,0};
+    long m_N{0};
+    long m_M{0};
 };
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
-Point myers_middle_move(const Area<C,K>& area)
+std::tuple<Point,Point> myers_middle_move(const Area<C,K>& area, long ms_per_step)
 {
     auto max{area.M() + area.N()};
     std::vector<long> V_fwd{static_cast<unsigned int>(2*max+1), 0};
@@ -192,18 +205,21 @@ Point myers_middle_move(const Area<C,K>& area)
     assert(V_bwd.capacity() == static_cast<unsigned long>(2*max+1));
     long x_bwd{0},y_bwd{0};
 
+    auto start_time = std::chrono::high_resolution_clock::now();
     for (int d {0}; d <= static_cast<long>(max); ++d) {
         auto min_valid_k = -d + std::max(0l, d-static_cast<long>(area.M())) * 2;
         auto max_valid_k = d - std::max(0l, d-static_cast<long>(area.N())) * 2 ;
         // Forward step
         bool at_dest{false};
+        long px{0};
         for (long k = min_valid_k; k<= max_valid_k; k+=2) {
             // Move downward or to the right
             if (k == -d || ((k != d )&& (V_fwd[TK(k-1)] < V_fwd[TK(k+1)]))) {
-                x_fwd = V_fwd[TK(k+1)];
+                px = x_fwd = V_fwd[TK(k+1)];
             }
             else {
-                x_fwd = V_fwd[TK(k-1)] + 1;
+                px = V_fwd[TK(k-1)];
+                x_fwd = px + 1;
             }
             y_fwd = x_fwd - k;
             // Follow diagonal as long as possible
@@ -213,6 +229,21 @@ Point myers_middle_move(const Area<C,K>& area)
             }
             // Store best x position on this diagonal
             V_fwd[TK(k)] = x_fwd;
+
+            // Check if we crossed the backward move
+            if (d > 0) {
+                const auto rk = area.rdiagonal(k);
+                if (x_fwd >= (area.N() - V_bwd[TK(rk)])) {
+                    Point top = area.abs_point(px, px -k);
+                    if (area.contains_abs(top)) {
+                        Point bottom = area.abs_point(x_fwd,y_fwd);
+                        if (area.contains_abs(bottom)) {
+                            return {top,bottom};
+                        }
+                    }
+                }
+            }
+
             if (x_fwd >= area.N() and y_fwd >= area.M()) {
                 at_dest = true;
                 break;
@@ -223,10 +254,11 @@ Point myers_middle_move(const Area<C,K>& area)
         for (long k = min_valid_k; k<= max_valid_k; k+=2) {
             // Move downward or to the right
             if (k == -d || ((k != d )&& (V_bwd[TK(k-1)] < V_bwd[TK(k+1)]))) {
-                x_bwd = V_bwd[TK(k+1)];
+                px = x_bwd = V_bwd[TK(k+1)];
             }
             else {
-                x_bwd = V_bwd[TK(k-1)] + 1;
+                px = V_bwd[TK(k-1)];
+                x_bwd = px + 1;
             }
             y_bwd = x_bwd - k;
             // Follow diagonal as long as possible
@@ -236,32 +268,39 @@ Point myers_middle_move(const Area<C,K>& area)
             }
             // Store best position on this diagonal
             V_bwd[TK(k)] = x_bwd;
+
+            // Check if we crossed the forward move
+            if (d > 0) {
+                const auto rk = area.rdiagonal(k);
+                if (x_bwd >= (area.N() - V_fwd[TK(rk)])) {
+                    Point top = area.abs_point_r(x_bwd,y_bwd);
+                    if (area.contains_abs(top)) {
+                        Point bottom = area.abs_point_r(px,px-k);
+                        if (area.contains_abs(bottom)) {
+                            return {top,bottom};
+                        }
+                    }
+                }
+            }
+
             if (x_bwd >= area.N() and y_bwd >= area.M()) {
                 at_dest = true;
                 break;
             }
         }
 
-        for (long k = min_valid_k; k<= max_valid_k; k+=1) {
-            const auto rk = area.rdiagonal(k);
-            const auto& bxf = V_fwd[TK(k)];
-            auto byf = bxf - k;
-            const auto& bxb = V_bwd[TK(rk)];
-            auto byb = bxb - rk;
-            Point abfw = area.abs_point(bxf,byf);
-            Point abbw = area.abs_point_r(bxb, byb);
-            if (std::get<0>(abfw) >= std::get<0>(abbw)) {
-                if (area.contains_abs(abfw)) {
-                    return abfw;
-                }
-                else if (area.contains_abs(abbw)) {
-                    return abbw;
-                }
-            }
-        }
-
         if (at_dest) {
             break;
+        }
+
+        if (ms_per_step > 0) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count() > ms_per_step) {
+                auto n = std::max(1L, area.N() / 2);
+                auto m = std::max(1L, area.M() / 2);
+                const auto& [tlx, tly] = area.tl();
+                return {area.tl(), {tlx+n, tly+m}};
+            }
         }
     }
     assert(false); // This can't be
@@ -269,10 +308,8 @@ Point myers_middle_move(const Area<C,K>& area)
 }
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
-void myers_moves(Area<C,K> area, std::vector<Move<K>>& result)
+void myers_moves(Area<C,K> area, std::vector<Move<K>>& result, long ms_per_step)
 {
-    area.trim_start();
-    area.trim_end();
     if (area.N() == 0 && area.M() == 0) {
         return;
     }
@@ -299,24 +336,43 @@ void myers_moves(Area<C,K> area, std::vector<Move<K>>& result)
         result.push_back(Move<K> {OP::DELETE, area.tl(), area.br(), {}});
     }
     else {
-        auto middle = myers_middle_move(area);
-        myers_moves(Area{area, area.tl(), middle}, result);
-        myers_moves(Area{area, middle, area.br()}, result);
+        auto middle = myers_middle_move(area, ms_per_step);
+        const auto& [top, bottom] = middle;
+        myers_moves(Area{area, area.tl(), top}, result, ms_per_step);
+        myers_moves(Area{area, top, bottom}, result, ms_per_step);
+        myers_moves(Area{area, bottom, area.br()}, result, ms_per_step);
     }
 }
 
 template<template<typename, typename ... > typename C, typename K, typename ... Args>
-std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b)
+std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ms_per_step = -1)
 {
-    Area<C,K> all{a,b};
+    const auto& longest = a.size() > b.size() ? a : b;
+    const auto& shortest = a.size() > b.size() ? b : a;
+    bool reversed = (&longest == &a);
+    Area<C,K> all{shortest,longest};
     std::vector<Move<K>> s;
-    myers_moves(all, s);
-    std::for_each (s.begin(), s.end(), [&b](auto& m) {
+    myers_moves(all, s, ms_per_step);
+    std::for_each (s.begin(), s.end(), [&longest,&reversed](auto& m) {
         auto& [m_op, m_s, m_t, v] = m;
         switch(m_op) {
         case OP::INSERT: {
-            auto count{std::get<1>(m_t) - std::get<1>(m_s)};
-            v.insert(v.begin(), b.begin() + std::get<1>(m_s), b.begin() + std::get<1>(m_s) + count);
+            if (reversed) {
+                m_op = OP::DELETE;
+            }
+            else {
+                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
+                v.insert(v.begin(), longest.begin() + std::get<1>(m_s), longest.begin() + std::get<1>(m_s) + count);
+            }
+            break;
+        }
+        case OP::DELETE: {
+            if (reversed) {
+                m_op = OP::INSERT;
+                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
+                v.insert(v.begin(), longest.begin() + std::get<1>(m_s), longest.begin() + std::get<1>(m_s) + count);
+            }
+            break;
         }
         }
     });
