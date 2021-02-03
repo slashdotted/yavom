@@ -378,6 +378,51 @@ std::vector<Move<K>> myers(const C<K,Args...>& a, const C<K,Args...>& b, long ms
     });
     return s;
 }
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b, long ms_per_step = -1)
+{
+    const auto& longest = a.size() > b.size() ? a : b;
+    const auto& shortest = a.size() > b.size() ? b : a;
+    Area<C,K> all{shortest,longest};
+    std::vector<Move<K>> s;
+    myers_moves(all, s, ms_per_step);
+    return s;
+}
+
+template<template<typename, typename ... > typename C, typename K, typename ... Args>
+void myers_fill(const C<K,Args...>& a, const C<K,Args...>& b, std::vector<Move<K>>& s)
+{
+    const auto& longest = a.size() > b.size() ? a : b;
+    const auto& shortest = a.size() > b.size() ? b : a;
+    bool reversed = (&longest == &a);
+    std::for_each (s.begin(), s.end(), [&longest,&reversed](auto& m) {
+        auto& [m_op, m_s, m_t, v] = m;
+        switch(m_op) {
+        case OP::INSERT: {
+            if (reversed) {
+                m_op = OP::DELETE;
+            }
+            else {
+                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
+                v.insert(v.begin(), longest.begin() + std::get<1>(m_s), longest.begin() + std::get<1>(m_s) + count);
+            }
+            break;
+        }
+        case OP::DELETE: {
+            if (reversed) {
+                m_op = OP::INSERT;
+                auto count{std::get<1>(m_t) - std::get<1>(m_s)};
+                v.insert(v.begin(), longest.begin() + std::get<1>(m_s), longest.begin() + std::get<1>(m_s) + count);
+            }
+            break;
+        }
+        }
+    });
+}
+
+
+
 }
 }
 

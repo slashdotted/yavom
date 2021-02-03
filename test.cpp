@@ -79,9 +79,26 @@ auto main() -> int
                     std::cerr << "Comparing " << fa << " with " << fb << "...";
                     auto a = readFile(basePath+ fa);
                     auto b = readFile(basePath+ fb);
-                    a.reserve(a.size()+b.size());
-                    auto moves = myers(a,b);
+                    auto moves = myers(a,b, 1);
                     std::cerr << moves.size() << " moves\n";
+                    for (const auto& m : moves) {
+                        apply_move(m, a);
+                    }
+                    compare(a,b);
+                }
+            }
+        }
+        {
+            std::string basePath{"./testdata/"};
+            auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
+            for(const auto& fa : files) {
+                for (const auto& fb : files) {
+                    std::cerr << "Comparing " << fa << " with " << fb << "...";
+                    auto a = readFile(basePath+ fa);
+                    auto b = readFile(basePath+ fb);
+                    auto moves = myers_unfilled(a,b, 1);
+                    std::cerr << moves.size() << " moves\n";
+                    myers_fill(a, b, moves);
                     for (const auto& m : moves) {
                         apply_move(m, a);
                     }
