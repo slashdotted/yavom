@@ -52,16 +52,10 @@ auto readFile(const std::string& filePath) -> std::vector<std::string>
 auto compare(const std::vector<std::string>& a, const std::vector<std::string>& b) -> bool
 {
     if (a.size() != b.size()) {
-        std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << '\n';
         return false;
     }
-    std::cerr << "a.size()=" << a.size() << " b.size()=" << b.size() << "...OK!" << '\n';
-
     for (auto i{0U}; i<a.size(); ++i) {
         if (a[i] != b[i]) {
-            std::cerr << "Line " << i << " differs:\n";
-            std::cerr << "\tA:" << a[i] << '\n';
-            std::cerr << "\tB:" << b[i] << '\n';
             return false;
         }
     }
@@ -76,15 +70,21 @@ auto main() -> int
             auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
             for(const auto& fa : files) {
                 for (const auto& fb : files) {
-                    std::cerr << "Comparing " << fa << " with " << fb << "...";
+                    std::cerr << "Comparing (two steps) " << fa << " with " << fb << "... ";
                     auto a = readFile(basePath+ fa);
                     auto b = readFile(basePath+ fb);
-                    auto moves = myers(a,b, 1);
-                    std::cerr << moves.size() << " moves\n";
+                    auto moves = myers_unfilled(a,b, 100'000);
+                    std::cerr << moves.size() << " moves...";
+                    myers_fill(a, b, moves);
                     for (const auto& m : moves) {
                         apply_move(m, a);
                     }
-                    compare(a,b);
+                    if (!compare(a,b)) {
+                        std::cerr << " fail!\n";
+                    }
+                    else {
+                        std::cerr << " success!\n";
+                    }
                 }
             }
         }
@@ -93,16 +93,19 @@ auto main() -> int
             auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
             for(const auto& fa : files) {
                 for (const auto& fb : files) {
-                    std::cerr << "Comparing " << fa << " with " << fb << "...";
+                    std::cerr << "Comparing (single step) " << fa << " with " << fb << "...";
                     auto a = readFile(basePath+ fa);
                     auto b = readFile(basePath+ fb);
-                    auto moves = myers_unfilled(a,b, 1);
-                    std::cerr << moves.size() << " moves\n";
-                    myers_fill(a, b, moves);
+                    auto moves = myers(a,b, 100'000);
                     for (const auto& m : moves) {
                         apply_move(m, a);
                     }
-                    compare(a,b);
+                    if (!compare(a,b)) {
+                        std::cerr << " fail!\n";
+                    }
+                    else {
+                        std::cerr << " success!\n";
+                    }
                 }
             }
         }

@@ -11,7 +11,7 @@ std::vector<std::string> arrayTwo;
 auto moves = myers(arrayOne,arrayTwo);
 ```
 The return value *moves* is a vector of *Move* objects. The *myers* function accepts an additional *long* parameter which defines the maximum
-time (in *milliseconds*) that the algorithm is allowed to spend at each iteration (an iteration is one step *d* in Myers algorithm): this is
+time (in *nanoseconds*) that the algorithm is allowed to spend at each iteration (an iteration is one step *d* in Myers algorithm): this is
 useful when dealing with very large containers (by default the value is -1, meaning that no time limit is set).
 You can apply moves to the array as follows:
 ```c
@@ -33,7 +33,7 @@ The *std::vector<K>* field stores the values to be inserted.
 If you are interested in knowning how many moves will be necessary but do not want to generate complete moves (with complete insert data), you can
 use the *myers_unfilled* function:
 ```c
-auto moves = myers_unfilled(a,b, 1);
+auto moves = myers_unfilled(a,b, 1000);
 std::cerr << moves.size() << " moves\n";
 ``` 
 Subsequently you can fill the insertion data:
