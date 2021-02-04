@@ -46,7 +46,7 @@ namespace yavom {
 
 // Basic definitions
 
-enum class OP {INSERT, DELETE};
+enum class OP {INSERT, DELETE, _DELETE};
 using Point=std::tuple<long,long>;
 
 template<typename K>
@@ -214,9 +214,17 @@ void apply_move(const Move<K>& m, C<K,Args...>& a)
     case OP::DELETE: {
         auto count{std::get<0>(m_t) - std::get<0>(m_s)};
         a.erase(a.begin() + std::get<1>(m_s), a.begin() + std::get<1>(m_s) + count);
+        break;
+    }
+    case OP::_DELETE: {
+        const auto& [count, start] = m_s;
+        a.erase(a.begin() + std::get<1>(m_s), a.begin() + std::get<1>(m_s) + count);
+        break;
     }
     case OP::INSERT: {
+        // Only m_s at index 1 is required
         a.insert(a.begin() + std::get<1>(m_s), v.begin(), v.end());
+        break;
     }
     }
 }
@@ -589,6 +597,24 @@ void myers_fill(const C<K,Args...>& b, std::vector<Move<K>>& s)
     });
 }
 
+// This is meant to be run AFTER fill
+// For OP::_DELETE save and restore only m_s (count, start)
+// For OP::INSERT only the second coordinate in m_s and the vector need to be saved and restored
+template<typename K>
+void myers_strip_moves(std::vector<Move<K>>& s)
+{
+    for (auto& m : s) {
+        auto& [m_op, m_s, m_t, v] = m;
+        switch(m_op) {
+        case OP::DELETE: {
+            m_op = OP::_DELETE;
+            auto count{std::get<0>(m_t) - std::get<0>(m_s)};
+            m_s = {count, std::get<1>(m_s)};
+            break;
+        }
+        }
+    }
+}
 
 
 }

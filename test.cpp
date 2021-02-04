@@ -76,6 +76,31 @@ auto main() -> int
                     auto moves = myers_unfilled(a,b, 1'000'000);
                     std::cerr << moves.size() << " moves...";
                     myers_fill(b, moves);
+                    myers_strip_moves(moves);
+                    std::cerr << " filled...";
+                    for (const auto& m : moves) {
+                        apply_move(m, a);
+                    }
+                    if (!compare(a,b)) {
+                        std::cerr << " fail!\n";
+                    }
+                    else {
+                        std::cerr << " success!\n";
+                    }
+                }
+            }
+        }
+        {
+            std::string basePath{"./testdata/"};
+            auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
+            for(const auto& fa : files) {
+                for (const auto& fb : files) {
+                    std::cerr << "Comparing (two steps) " << fa << " with " << fb << "... ";
+                    auto a = readFile(basePath+ fa);
+                    auto b = readFile(basePath+ fb);
+                    auto moves = myers_unfilled(a,b, 1'000'000);
+                    std::cerr << moves.size() << " moves...";
+                    myers_fill(b, moves);
                     std::cerr << " filled...";
                     for (const auto& m : moves) {
                         apply_move(m, a);
