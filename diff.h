@@ -551,7 +551,6 @@ std::vector<Move<K>> myers_unfilled(const C<K,Args...>& a, const C<K,Args...>& b
 #else
     const auto& longest = b;
     const auto& shortest = a;
-    constexpr bool reversed = false;
 #endif
     Area<C,K> all {shortest,longest};
     std::vector<Move<K>> s;
@@ -593,6 +592,8 @@ void myers_fill(const C<K,Args...>& b, std::vector<Move<K>>& s)
             v.insert(v.begin(), b.begin() + std::get<1>(m_s), b.begin() + std::get<1>(m_s) + count);
             break;
         }
+        default:
+            break;
         }
     });
 }
@@ -612,6 +613,8 @@ void myers_strip_moves(std::vector<Move<K>>& s)
             m_s = {count, std::get<1>(m_s)};
             break;
         }
+        default:
+            break;
         }
     }
 }
