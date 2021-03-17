@@ -48,7 +48,7 @@ namespace yavom {
 // Basic definitions
 
 enum class OP { INSERT, DELETE, _DELETE };
-using Point = std::tuple<long, long>;
+using Point = std::tuple<int_fast64_t, int_fast64_t>;
 
 template <typename K> using Move = std::tuple<OP, Point, Point, std::vector<K>>;
 
@@ -56,8 +56,8 @@ template <template <typename, typename...> typename C, typename K,
           typename... Args>
 struct Area {
   Area(const C<K, Args...> &a, const C<K, Args...> &b)
-      : m_a{a}, m_b{b}, m_tl{0, 0}, m_br{static_cast<long>(a.size()),
-                                         static_cast<long>(b.size())} {
+      : m_a{a}, m_b{b}, m_tl{0, 0}, m_br{static_cast<int_fast64_t>(a.size()),
+                                         static_cast<int_fast64_t>(b.size())} {
     assert(std::get<0>(m_tl) <= std::get<0>(m_br));
     assert(std::get<1>(m_tl) <= std::get<1>(m_br));
     trim();
@@ -72,41 +72,41 @@ struct Area {
     trim();
   }
 
-  const K &a(long index) const noexcept {
+  const K &a(int_fast64_t index) const noexcept {
     return m_a[std::get<0>(m_tl) + index];
   }
 
-  const K &b(long index) const noexcept {
+  const K &b(int_fast64_t index) const noexcept {
     return m_b[std::get<1>(m_tl) + index];
   }
 
-  const K &ra(long index) const noexcept {
+  const K &ra(int_fast64_t index) const noexcept {
     return m_a[std::get<0>(m_br) - 1 - index];
   }
 
-  const K &rb(long index) const noexcept {
+  const K &rb(int_fast64_t index) const noexcept {
     return m_b[std::get<1>(m_br) - 1 - index];
   }
 
-  long N() const noexcept { return m_N; }
+  int_fast64_t N() const noexcept { return m_N; }
 
-  long M() const noexcept { return m_M; }
+  int_fast64_t M() const noexcept { return m_M; }
 
-  long cN() const noexcept {
+  int_fast64_t cN() const noexcept {
     assert(std::get<0>(m_br) >= std::get<0>(m_tl));
     return std::get<0>(m_br) - std::get<0>(m_tl);
   }
 
-  long cM() const noexcept {
+  int_fast64_t cM() const noexcept {
     assert(std::get<1>(m_br) >= std::get<1>(m_tl));
     return std::get<1>(m_br) - std::get<1>(m_tl);
   }
 
-  Point abs_point_r(long rel_x, long rel_y) const noexcept {
+  Point abs_point_r(int_fast64_t rel_x, int_fast64_t rel_y) const noexcept {
     return {std::get<0>(m_tl) + N() - rel_x, std::get<1>(m_tl) + M() - rel_y};
   }
 
-  Point abs_point(long rel_x, long rel_y) const noexcept {
+  Point abs_point(int_fast64_t rel_x, int_fast64_t rel_y) const noexcept {
     return {std::get<0>(m_tl) + rel_x, std::get<1>(m_tl) + rel_y};
   }
 
@@ -114,7 +114,9 @@ struct Area {
     return {N() - std::get<0>(p), M() - std::get<1>(p)};
   }
 
-  long rdiagonal(long k) const noexcept { return (-k + (N() - M())); }
+  int_fast64_t rdiagonal(int_fast64_t k) const noexcept {
+    return (-k + (N() - M()));
+  }
 
   bool contains_abs(Point p) const noexcept {
     return std::get<0>(p) >= std::get<0>(m_tl) &&
@@ -151,8 +153,8 @@ struct Area {
   const C<K, Args...> &m_b;
   Point m_tl{0, 0};
   Point m_br{0, 0};
-  long m_N{0};
-  long m_M{0};
+  int_fast64_t m_N{0};
+  int_fast64_t m_M{0};
 };
 
 // Forward declarations
@@ -164,25 +166,25 @@ void apply_move(const Move<K> &m, C<K, Args...> &a);
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
-                                           long ns_per_step);
+                                           int_fast64_t ns_per_step);
 
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 void myers_moves(Area<C, K> area, std::vector<Move<K>> &result,
-                 long ns_per_step);
+                 int_fast64_t ns_per_step);
 
 template <typename P> void inner_swap(P &p);
 
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::vector<Move<K>> myers(const C<K, Args...> &a, const C<K, Args...> &b,
-                           long ns_per_step = -1);
+                           int_fast64_t ns_per_step = -1);
 
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::vector<Move<K>> myers_unfilled(const C<K, Args...> &a,
                                     const C<K, Args...> &b,
-                                    long ns_per_step = -1);
+                                    int_fast64_t ns_per_step = -1);
 
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
@@ -217,29 +219,31 @@ void apply_move(const Move<K> &m, C<K, Args...> &a) {
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
-                                           long ns_per_step) {
+                                           int_fast64_t ns_per_step) {
   auto max{area.M() + area.N()};
-  std::vector<long> V_fwd{static_cast<unsigned int>(2 * max + 1), 0};
+  std::vector<int_fast64_t> V_fwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_fwd.resize(2 * max + 1);
   V_fwd[1] = 0;
-  assert(V_fwd.capacity() == static_cast<unsigned long>(2 * max + 1));
-  long x_fwd{0}, y_fwd{0};
+  assert(V_fwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  int_fast64_t x_fwd{0}, y_fwd{0};
 
-  std::vector<long> V_bwd{static_cast<unsigned int>(2 * max + 1), 0};
+  std::vector<int_fast64_t> V_bwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_bwd.resize(2 * max + 1);
   V_bwd[1] = 0;
-  assert(V_bwd.capacity() == static_cast<unsigned long>(2 * max + 1));
-  long x_bwd{0}, y_bwd{0};
+  assert(V_bwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  int_fast64_t x_bwd{0}, y_bwd{0};
 
   auto start_time = std::chrono::high_resolution_clock::now();
-  for (int d{0}; d <= static_cast<long>(max); ++d) {
-    auto min_valid_k = -d + std::max(0l, d - static_cast<long>(area.M())) * 2;
-    auto max_valid_k = d - std::max(0l, d - static_cast<long>(area.N())) * 2;
+  for (int d{0}; d <= static_cast<int_fast64_t>(max); ++d) {
+    auto min_valid_k =
+        -d + std::max(0l, d - static_cast<int_fast64_t>(area.M())) * 2;
+    auto max_valid_k =
+        d - std::max(0l, d - static_cast<int_fast64_t>(area.N())) * 2;
     enum class StepRetStatus { SUCCESS, NEED_MORE, EXHAUSTED };
     using StepRetType = std::tuple<StepRetStatus, std::tuple<Point, Point>>;
     auto ft = std::async([&]() -> StepRetType {
-      for (long k = min_valid_k; k <= max_valid_k; k += 2) {
-        long px{0};
+      for (int_fast64_t k = min_valid_k; k <= max_valid_k; k += 2) {
+        int_fast64_t px{0};
         // Move downward or to the right
         if (k == -d || ((k != d) && (V_fwd[TK(k - 1)] < V_fwd[TK(k + 1)]))) {
           px = x_fwd = V_fwd[TK(k + 1)];
@@ -248,7 +252,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
           x_fwd = px + 1;
         }
         y_fwd = x_fwd - k;
-        // Follow diagonal as long as possible
+        // Follow diagonal as int_fast64_t as possible
         while ((x_fwd < area.N()) && (y_fwd < area.M()) &&
                (area.a(x_fwd) == area.b(y_fwd))) {
           ++x_fwd;
@@ -280,8 +284,8 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
 
     // Backward step
     auto bt = std::async([&]() -> StepRetType {
-      for (long k = min_valid_k; k <= max_valid_k; k += 2) {
-        long px{0};
+      for (int_fast64_t k = min_valid_k; k <= max_valid_k; k += 2) {
+        int_fast64_t px{0};
         // Move downward or to the right
         if (k == -d || ((k != d) && (V_bwd[TK(k - 1)] < V_bwd[TK(k + 1)]))) {
           px = x_bwd = V_bwd[TK(k + 1)];
@@ -290,7 +294,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
           x_bwd = px + 1;
         }
         y_bwd = x_bwd - k;
-        // Follow diagonal as long as possible
+        // Follow diagonal as int_fast64_t as possible
         while ((x_bwd < area.N()) && (y_bwd < area.M()) &&
                (area.ra(x_bwd) == area.rb(y_bwd))) {
           ++x_bwd;
@@ -352,28 +356,30 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
-                                           long ns_per_step) {
+                                           int_fast64_t ns_per_step) {
   auto max{area.M() + area.N()};
-  std::vector<long> V_fwd{static_cast<unsigned int>(2 * max + 1), 0};
+  std::vector<int_fast64_t> V_fwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_fwd.resize(2 * max + 1);
   V_fwd[1] = 0;
-  assert(V_fwd.capacity() == static_cast<unsigned long>(2 * max + 1));
-  long x_fwd{0}, y_fwd{0};
+  assert(V_fwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  int_fast64_t x_fwd{0}, y_fwd{0};
 
-  std::vector<long> V_bwd{static_cast<unsigned int>(2 * max + 1), 0};
+  std::vector<int_fast64_t> V_bwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_bwd.resize(2 * max + 1);
   V_bwd[1] = 0;
-  assert(V_bwd.capacity() == static_cast<unsigned long>(2 * max + 1));
-  long x_bwd{0}, y_bwd{0};
+  assert(V_bwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  int_fast64_t x_bwd{0}, y_bwd{0};
 
   auto start_time = std::chrono::high_resolution_clock::now();
-  for (int d{0}; d <= static_cast<long>(max); ++d) {
-    auto min_valid_k = -d + std::max(0l, d - static_cast<long>(area.M())) * 2;
-    auto max_valid_k = d - std::max(0l, d - static_cast<long>(area.N())) * 2;
+  for (int d{0}; d <= static_cast<int_fast64_t>(max); ++d) {
+    auto min_valid_k =
+        -d + std::max(0l, d - static_cast<int_fast64_t>(area.M())) * 2;
+    auto max_valid_k =
+        d - std::max(0l, d - static_cast<int_fast64_t>(area.N())) * 2;
     // Forward step
     bool at_dest{false};
-    long px{0};
-    for (long k = min_valid_k; k <= max_valid_k; k += 2) {
+    int_fast64_t px{0};
+    for (int_fast64_t k = min_valid_k; k <= max_valid_k; k += 2) {
       // Move downward or to the right
       if (k == -d || ((k != d) && (V_fwd[TK(k - 1)] < V_fwd[TK(k + 1)]))) {
         px = x_fwd = V_fwd[TK(k + 1)];
@@ -382,7 +388,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         x_fwd = px + 1;
       }
       y_fwd = x_fwd - k;
-      // Follow diagonal as long as possible
+      // Follow diagonal as int_fast64_t as possible
       while ((x_fwd < area.N()) && (y_fwd < area.M()) &&
              (area.a(x_fwd) == area.b(y_fwd))) {
         ++x_fwd;
@@ -412,7 +418,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
     }
 
     // Backward step
-    for (long k = min_valid_k; k <= max_valid_k; k += 2) {
+    for (int_fast64_t k = min_valid_k; k <= max_valid_k; k += 2) {
       // Move downward or to the right
       if (k == -d || ((k != d) && (V_bwd[TK(k - 1)] < V_bwd[TK(k + 1)]))) {
         px = x_bwd = V_bwd[TK(k + 1)];
@@ -421,7 +427,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         x_bwd = px + 1;
       }
       y_bwd = x_bwd - k;
-      // Follow diagonal as long as possible
+      // Follow diagonal as int_fast64_t as possible
       while ((x_bwd < area.N()) && (y_bwd < area.M()) &&
              (area.ra(x_bwd) == area.rb(y_bwd))) {
         ++x_bwd;
@@ -476,7 +482,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 void myers_moves(Area<C, K> area, std::vector<Move<K>> &result,
-                 long ns_per_step) {
+                 int_fast64_t ns_per_step) {
   if (area.N() == 0 && area.M() == 0) {
     return;
   } else if (area.N() == 0) {
@@ -518,7 +524,7 @@ template <typename P> void inner_swap(P &p) {
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::vector<Move<K>> myers(const C<K, Args...> &a, const C<K, Args...> &b,
-                           long ns_per_step) {
+                           int_fast64_t ns_per_step) {
   auto s = myers_unfilled(a, b, ns_per_step);
   myers_fill(b, s);
   return s;
@@ -527,40 +533,42 @@ std::vector<Move<K>> myers(const C<K, Args...> &a, const C<K, Args...> &b,
 template <template <typename, typename...> typename C, typename K,
           typename... Args>
 std::vector<Move<K>> myers_unfilled(const C<K, Args...> &a,
-                                    const C<K, Args...> &b, long ns_per_step) {
+                                    const C<K, Args...> &b,
+                                    int_fast64_t ns_per_step) {
 #ifdef YAVOM_TRANSPOSE
-  const auto &longest = a.size() > b.size() ? a : b;
+  const auto &int_fast64_test = a.size() > b.size() ? a : b;
   const auto &shortest = a.size() > b.size() ? b : a;
-  bool reversed = (&longest == &a);
+  bool reversed = (&int_fast64_test == &a);
 #else
-  const auto &longest = b;
+  const auto &int_fast64_test = b;
   const auto &shortest = a;
 #endif
-  Area<C, K> all{shortest, longest};
+  Area<C, K> all{shortest, int_fast64_test};
   std::vector<Move<K>> s;
   myers_moves(all, s, ns_per_step);
 #ifdef YAVOM_TRANSPOSE
-  std::for_each(s.begin(), s.end(), [&longest, &shortest, &reversed](auto &m) {
-    auto &[m_op, m_s, m_t, v] = m;
-    switch (m_op) {
-    case OP::INSERT: {
-      if (reversed) {
-        m_op = OP::DELETE;
-        inner_swap(m_s);
-        inner_swap(m_t);
-      }
-      break;
-    }
-    case OP::DELETE: {
-      if (reversed) {
-        m_op = OP::INSERT;
-        inner_swap(m_s);
-        inner_swap(m_t);
-      }
-      break;
-    }
-    }
-  });
+  std::for_each(s.begin(), s.end(),
+                [&int_fast64_test, &shortest, &reversed](auto &m) {
+                  auto &[m_op, m_s, m_t, v] = m;
+                  switch (m_op) {
+                  case OP::INSERT: {
+                    if (reversed) {
+                      m_op = OP::DELETE;
+                      inner_swap(m_s);
+                      inner_swap(m_t);
+                    }
+                    break;
+                  }
+                  case OP::DELETE: {
+                    if (reversed) {
+                      m_op = OP::INSERT;
+                      inner_swap(m_s);
+                      inner_swap(m_t);
+                    }
+                    break;
+                  }
+                  }
+                });
 #endif
   return s;
 }
