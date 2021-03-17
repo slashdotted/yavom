@@ -224,21 +224,25 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
   std::vector<int_fast64_t> V_fwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_fwd.resize(2 * max + 1);
   V_fwd[1] = 0;
-  assert(V_fwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  assert(static_cast<int_fast64_t>(V_fwd.capacity()) ==
+         static_cast<int_fast64_t>(2 * max + 1));
   int_fast64_t x_fwd{0}, y_fwd{0};
 
   std::vector<int_fast64_t> V_bwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_bwd.resize(2 * max + 1);
   V_bwd[1] = 0;
-  assert(V_bwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  assert(static_cast<int_fast64_t>(V_bwd.capacity()) ==
+         static_cast<int_fast64_t>(2 * max + 1));
   int_fast64_t x_bwd{0}, y_bwd{0};
 
   auto start_time = std::chrono::high_resolution_clock::now();
   for (int d{0}; d <= static_cast<int_fast64_t>(max); ++d) {
-    auto min_valid_k =
-        -d + std::max(0l, d - static_cast<int_fast64_t>(area.M())) * 2;
-    auto max_valid_k =
-        d - std::max(0l, d - static_cast<int_fast64_t>(area.N())) * 2;
+    auto min_valid_k = -d + std::max(static_cast<int_fast64_t>(0l),
+                                     d - static_cast<int_fast64_t>(area.M())) *
+                                2;
+    auto max_valid_k = d - std::max(static_cast<int_fast64_t>(0l),
+                                    d - static_cast<int_fast64_t>(area.N())) *
+                               2;
     enum class StepRetStatus { SUCCESS, NEED_MORE, EXHAUSTED };
     using StepRetType = std::tuple<StepRetStatus, std::tuple<Point, Point>>;
     auto ft = std::async([&]() -> StepRetType {
@@ -341,8 +345,8 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         if (std::chrono::duration_cast<std::chrono::nanoseconds>(end_time -
                                                                  start_time)
                 .count() > ns_per_step) {
-          auto n = std::max(1L, area.N() / 2);
-          auto m = std::max(1L, area.M() / 2);
+          auto n = std::max(static_cast<int_fast64_t>(1L), area.N() / 2);
+          auto m = std::max(static_cast<int_fast64_t>(1L), area.M() / 2);
           const auto &[tlx, tly] = area.tl();
           return {{tlx + n, tly + m}, {tlx + n + 1, tly + m + 1}};
         }
@@ -361,21 +365,25 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
   std::vector<int_fast64_t> V_fwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_fwd.resize(2 * max + 1);
   V_fwd[1] = 0;
-  assert(V_fwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  assert(static_cast<int_fast64_t>(V_fwd.capacity()) ==
+         static_cast<int_fast64_t>(2 * max + 1));
   int_fast64_t x_fwd{0}, y_fwd{0};
 
   std::vector<int_fast64_t> V_bwd{static_cast<int_fast64_t>(2 * max + 1), 0};
   V_bwd.resize(2 * max + 1);
   V_bwd[1] = 0;
-  assert(V_bwd.capacity() == static_cast<int_fast64_t>(2 * max + 1));
+  assert(static_cast<int_fast64_t>(V_bwd.capacity()) ==
+         static_cast<int_fast64_t>(2 * max + 1));
   int_fast64_t x_bwd{0}, y_bwd{0};
 
   auto start_time = std::chrono::high_resolution_clock::now();
   for (int d{0}; d <= static_cast<int_fast64_t>(max); ++d) {
-    auto min_valid_k =
-        -d + std::max(0l, d - static_cast<int_fast64_t>(area.M())) * 2;
-    auto max_valid_k =
-        d - std::max(0l, d - static_cast<int_fast64_t>(area.N())) * 2;
+    auto min_valid_k = -d + std::max(static_cast<int_fast64_t>(0l),
+                                     d - static_cast<int_fast64_t>(area.M())) *
+                                2;
+    auto max_valid_k = d - std::max(static_cast<int_fast64_t>(0l),
+                                    d - static_cast<int_fast64_t>(area.N())) *
+                               2;
     // Forward step
     bool at_dest{false};
     int_fast64_t px{0};
@@ -466,8 +474,8 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         if (std::chrono::duration_cast<std::chrono::nanoseconds>(end_time -
                                                                  start_time)
                 .count() > ns_per_step) {
-          auto n = std::max(1L, area.N() / 2);
-          auto m = std::max(1L, area.M() / 2);
+          auto n = std::max(static_cast<int_fast64_t>(1L), area.N() / 2);
+          auto m = std::max(static_cast<int_fast64_t>(1L), area.M() / 2);
           const auto &[tlx, tly] = area.tl();
           return {{tlx + n, tly + m}, {tlx + n + 1, tly + m + 1}};
         }
