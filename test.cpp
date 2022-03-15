@@ -31,7 +31,7 @@
 #include <iostream>
 #include <vector>
 
-using namespace syscall::yavom;
+using namespace orgsyscall::yavom;
 
 auto readFile(const std::string& filePath) -> std::vector<std::string>
 {
