@@ -256,7 +256,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
           x_fwd = px + 1;
         }
         y_fwd = x_fwd - k;
-        // Follow diagonal as int_fast64_t as possible
+        // Follow diagonal as long as possible
         while ((x_fwd < area.N()) && (y_fwd < area.M()) &&
                (area.a(x_fwd) == area.b(y_fwd))) {
           ++x_fwd;
@@ -298,7 +298,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
           x_bwd = px + 1;
         }
         y_bwd = x_bwd - k;
-        // Follow diagonal as int_fast64_t as possible
+        // Follow diagonal as long as possible
         while ((x_bwd < area.N()) && (y_bwd < area.M()) &&
                (area.ra(x_bwd) == area.rb(y_bwd))) {
           ++x_bwd;
@@ -396,7 +396,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         x_fwd = px + 1;
       }
       y_fwd = x_fwd - k;
-      // Follow diagonal as int_fast64_t as possible
+      // Follow diagonal as long as possible
       while ((x_fwd < area.N()) && (y_fwd < area.M()) &&
              (area.a(x_fwd) == area.b(y_fwd))) {
         ++x_fwd;
@@ -435,7 +435,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         x_bwd = px + 1;
       }
       y_bwd = x_bwd - k;
-      // Follow diagonal as int_fast64_t as possible
+      // Follow diagonal as long as possible
       while ((x_bwd < area.N()) && (y_bwd < area.M()) &&
              (area.ra(x_bwd) == area.rb(y_bwd))) {
         ++x_bwd;
