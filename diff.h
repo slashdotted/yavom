@@ -42,7 +42,7 @@
 
 // Yet Another Variation of Myers
 // for generic containers (for example std::vector)
-namespace syscall {
+namespace orgsyscall {
 namespace yavom {
 
 // Basic definitions
@@ -620,6 +620,6 @@ template <typename K> void myers_strip_moves(std::vector<Move<K>> &s) {
 }
 
 } // namespace yavom
-} // namespace syscall
+} // namespace orgsyscall
 
 #endif // DIFF_H

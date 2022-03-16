@@ -4,7 +4,7 @@ Yet Another Variation of Myers for generic containers (for example std::vector)
 This is an implementation of a quasi-Myers algorithm to determine the differences between two generic containers.
 Everything is included in *diff.h*. Its usage is quite simple, for example:
 ```c
-using namespace syscall::yavom;
+using namespace orgsyscall::yavom;
 std::vector<std::string> arrayOne;
 std::vector<std::string> arrayTwo;
 // Fill the arrays
