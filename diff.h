@@ -72,65 +72,65 @@ struct Area {
     trim();
   }
 
-  const K &a(int_fast64_t index) const noexcept {
+  auto a(int_fast64_t index) const noexcept -> const K& {
     return m_a[std::get<0>(m_tl) + index];
   }
 
-  const K &b(int_fast64_t index) const noexcept {
+  auto b(int_fast64_t index) const noexcept -> const K& {
     return m_b[std::get<1>(m_tl) + index];
   }
 
-  const K &ra(int_fast64_t index) const noexcept {
+  auto ra(int_fast64_t index) const noexcept -> const K& {
     return m_a[std::get<0>(m_br) - 1 - index];
   }
 
-  const K &rb(int_fast64_t index) const noexcept {
+  auto rb(int_fast64_t index) const noexcept -> const K& {
     return m_b[std::get<1>(m_br) - 1 - index];
   }
 
-  int_fast64_t N() const noexcept { return m_N; }
+  auto N() const noexcept -> int_fast64_t { return m_N; }
 
-  int_fast64_t M() const noexcept { return m_M; }
+  auto M() const noexcept -> int_fast64_t { return m_M; }
 
-  int_fast64_t cN() const noexcept {
+  auto cN() const noexcept -> int_fast64_t {
     assert(std::get<0>(m_br) >= std::get<0>(m_tl));
     return std::get<0>(m_br) - std::get<0>(m_tl);
   }
 
-  int_fast64_t cM() const noexcept {
+  auto cM() const noexcept -> int_fast64_t {
     assert(std::get<1>(m_br) >= std::get<1>(m_tl));
     return std::get<1>(m_br) - std::get<1>(m_tl);
   }
 
-  Point abs_point_r(int_fast64_t rel_x, int_fast64_t rel_y) const noexcept {
+  auto abs_point_r(int_fast64_t rel_x, int_fast64_t rel_y) const noexcept -> Point {
     return {std::get<0>(m_tl) + N() - rel_x, std::get<1>(m_tl) + M() - rel_y};
   }
 
-  Point abs_point(int_fast64_t rel_x, int_fast64_t rel_y) const noexcept {
+  auto abs_point(int_fast64_t rel_x, int_fast64_t rel_y) const noexcept -> Point {
     return {std::get<0>(m_tl) + rel_x, std::get<1>(m_tl) + rel_y};
   }
 
-  Point point_r(Point p) const noexcept {
+  auto point_r(Point p) const noexcept -> Point {
     return {N() - std::get<0>(p), M() - std::get<1>(p)};
   }
 
-  int_fast64_t rdiagonal(int_fast64_t k) const noexcept {
+  auto rdiagonal(int_fast64_t k) const noexcept -> int_fast64_t {
     return (-k + (N() - M()));
   }
 
-  bool contains_abs(Point p) const noexcept {
+  auto contains_abs(Point p) const noexcept -> bool {
     return std::get<0>(p) >= std::get<0>(m_tl) &&
            std::get<0>(p) <= std::get<0>(m_br) &&
            std::get<1>(p) >= std::get<1>(m_tl) &&
            std::get<1>(p) <= std::get<1>(m_br);
   }
 
-  const Point &tl() const noexcept { return m_tl; }
+  auto tl() const noexcept -> const Point & { return m_tl; }
 
-  const Point &br() const noexcept { return m_br; }
+  auto br() const noexcept -> const Point & { return m_br; }
 
-  const C<K, Args...> &a() const noexcept { return m_a; }
-  const C<K, Args...> &b() const noexcept { return m_b; }
+  auto a() const noexcept -> const C<K, Args...> & { return m_a; }
+  auto b() const noexcept ->  const C<K, Args...> & { return m_b; }
 
   void trim() noexcept {
     while (std::get<0>(m_tl) < std::get<0>(m_br) &&
@@ -544,19 +544,19 @@ std::vector<Move<K>> myers_unfilled(const C<K, Args...> &a,
                                     const C<K, Args...> &b,
                                     int_fast64_t ns_per_step) {
 #ifdef YAVOM_TRANSPOSE
-  const auto &int_fast64_test = a.size() > b.size() ? a : b;
+  const auto &longest = a.size() > b.size() ? a : b;
   const auto &shortest = a.size() > b.size() ? b : a;
-  bool reversed = (&int_fast64_test == &a);
+  bool reversed = (&longest == &a);
 #else
-  const auto &int_fast64_test = b;
+  const auto &longest = b;
   const auto &shortest = a;
 #endif
-  Area<C, K> all{shortest, int_fast64_test};
+  Area<C, K> all{shortest, longest};
   std::vector<Move<K>> s;
   myers_moves(all, s, ns_per_step);
 #ifdef YAVOM_TRANSPOSE
   std::for_each(s.begin(), s.end(),
-                [&int_fast64_test, &shortest, &reversed](auto &m) {
+                [&longest, &shortest, &reversed](auto &m) {
                   auto &[m_op, m_s, m_t, v] = m;
                   switch (m_op) {
                   case OP::INSERT: {
