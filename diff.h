@@ -204,7 +204,7 @@ void apply_move(const Move<K> &m, C<K, Args...> &a) {
   }
   case OP::_DELETE: {
     const auto &[count, start] = m_s;
-    a.erase(a.begin() + std::get<1>(m_s), a.begin() + std::get<1>(m_s) + count);
+    a.erase(a.begin() + start, a.begin() + start + count);
     break;
   }
   case OP::INSERT: {

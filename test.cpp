@@ -66,6 +66,94 @@ auto main() -> int
 {
     {
         {
+            auto a = std::vector<std::string>{"A", "W", "E", "S", "O", "M", "O"};
+            auto b = std::vector<std::string>{"S", "T", "R", "A", "N", "G", "E", "S", "O", "M", "O"};
+            auto moves = myers_unfilled(a,b, -1);
+            std::cerr << moves.size() << " moves...";
+            myers_fill(b, moves);
+            myers_strip_moves(moves);
+            std::cerr << " filled...";
+            for (const auto& m : moves) {
+                apply_move(m, a);
+            }
+            if (!compare(a,b)) {
+                std::cerr << " fail!\n";
+            }
+            else {
+                std::cerr << " success!\n";
+            }
+        }
+        {
+            std::string basePath{"./testdata/"};
+            auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
+            for(const auto& fa : files) {
+                for (const auto& fb : files) {
+                    std::cerr << "Comparing (two steps) " << fa << " with " << fb << "... ";
+                    auto a = readFile(basePath+ fa);
+                    auto b = readFile(basePath+ fb);
+                    auto moves = myers_unfilled(a,b, -1);
+                    std::cerr << moves.size() << " moves...";
+                    myers_fill(b, moves);
+                    myers_strip_moves(moves);
+                    std::cerr << " filled...";
+                    for (const auto& m : moves) {
+                        apply_move(m, a);
+                    }
+                    if (!compare(a,b)) {
+                        std::cerr << " fail!\n";
+                    }
+                    else {
+                        std::cerr << " success!\n";
+                    }
+                }
+            }
+        }
+        {
+            std::string basePath{"./testdata/"};
+            auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
+            for(const auto& fa : files) {
+                for (const auto& fb : files) {
+                    std::cerr << "Comparing (two steps) " << fa << " with " << fb << "... ";
+                    auto a = readFile(basePath+ fa);
+                    auto b = readFile(basePath+ fb);
+                    auto moves = myers_unfilled(a,b, -1);
+                    std::cerr << moves.size() << " moves...";
+                    myers_fill(b, moves);
+                    std::cerr << " filled...";
+                    for (const auto& m : moves) {
+                        apply_move(m, a);
+                    }
+                    if (!compare(a,b)) {
+                        std::cerr << " fail!\n";
+                    }
+                    else {
+                        std::cerr << " success!\n";
+                    }
+                }
+            }
+        }
+        {
+            std::string basePath{"./testdata/"};
+            auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
+            for(const auto& fa : files) {
+                for (const auto& fb : files) {
+                    std::cerr << "Comparing (single step) " << fa << " with " << fb << "...";
+                    auto a = readFile(basePath+ fa);
+                    auto b = readFile(basePath+ fb);
+                    auto moves = myers(a,b, -1);
+                    for (const auto& m : moves) {
+                        apply_move(m, a);
+                    }
+                    if (!compare(a,b)) {
+                        std::cerr << " fail!\n";
+                    }
+                    else {
+                        std::cerr << " success!\n";
+                    }
+                }
+            }
+        }
+        {
             std::string basePath{"./testdata/"};
             auto files = {"alpha", "ban", "ben", "beta", "delta", "empty", "first", "gamma", "huge", "huge2", "large1", "large2", "second", "test1", "test2", "third", "x", "y"};
             for(const auto& fa : files) {
