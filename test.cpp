@@ -30,6 +30,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 using namespace orgsyscall::yavom;
 
@@ -49,7 +50,8 @@ auto readFile(const std::string& filePath) -> std::vector<std::string>
     return data;
 }
 
-auto compare(const std::vector<std::string>& a, const std::vector<std::string>& b) -> bool
+template<typename T>
+auto compare(const std::vector<T>& a, const std::vector<T>& b) -> bool
 {
     if (a.size() != b.size()) {
         return false;
@@ -66,6 +68,25 @@ auto main() -> int
 {
     {
         {
+            auto a = std::vector<std::string>{"A", "B", "C", "D", "E", "F", "A"};
+            auto b = std::vector<std::string>{"C", "B", "A", "D", "F", "E"};
+            auto moves = myers_unfilled(a,b, -1);
+            std::cerr << moves.size() << " moves...";
+            myers_fill(b, moves);
+            myers_strip_moves(moves);
+            std::cerr << " filled...";
+            for (const auto& m : moves) {
+                apply_move(m, a);
+            }
+            if (!compare(a,b)) {
+                std::cerr << " fail!\n";
+            }
+            else {
+                std::cerr << " success!\n";
+            }
+            
+        }
+        {
             auto a = std::vector<std::string>{"A", "W", "E", "S", "O", "M", "O"};
             auto b = std::vector<std::string>{"S", "T", "R", "A", "N", "G", "E", "S", "O", "M", "O"};
             auto moves = myers_unfilled(a,b, -1);
@@ -81,6 +102,32 @@ auto main() -> int
             }
             else {
                 std::cerr << " success!\n";
+            }
+        }
+        {
+            for (auto s{2}; s <= 8; ++s) {
+                auto vsize = pow(2, s);
+                std::cerr << "Comparing vectors of size " << vsize << "...";
+                std::vector<int_fast64_t> a;
+                a.reserve(vsize);
+                for(size_t x{0}; x < a.capacity(); ++x) {
+                    a.push_back(x);
+                }
+                std::vector<int_fast64_t> b;
+                b.reserve(vsize);
+                for(size_t x{0}; x < a.capacity(); ++x) {
+                    b.push_back(-x);
+                }
+                auto moves = myers(a,b, -1);
+                for (const auto& m : moves) {
+                    apply_move(m, a);
+                }
+                if (!compare(a,b)) {
+                    std::cerr << " fail!\n";
+                }
+                else {
+                    std::cerr << " success!\n";
+                }
             }
         }
         {

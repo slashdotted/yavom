@@ -204,7 +204,7 @@ void apply_move(const Move<K> &m, C<K, Args...> &a) {
   }
   case OP::_DELETE: {
     const auto &[count, start] = m_s;
-    a.erase(a.begin() + start, a.begin() + start + count);
+    a.erase(a.begin() + std::get<1>(m_s), a.begin() + std::get<1>(m_s) + count);
     break;
   }
   case OP::INSERT: {
@@ -252,8 +252,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         if (k == -d || ((k != d) && (V_fwd[TK(k - 1)] < V_fwd[TK(k + 1)]))) {
           px = x_fwd = V_fwd[TK(k + 1)];
         } else {
-          px = V_fwd[TK(k - 1)];
-          x_fwd = px + 1;
+          x_fwd = px = V_fwd[TK(k - 1)] + 1;
         }
         y_fwd = x_fwd - k;
         // Follow diagonal as long as possible
@@ -294,8 +293,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
         if (k == -d || ((k != d) && (V_bwd[TK(k - 1)] < V_bwd[TK(k + 1)]))) {
           px = x_bwd = V_bwd[TK(k + 1)];
         } else {
-          px = V_bwd[TK(k - 1)];
-          x_bwd = px + 1;
+          x_bwd = px = V_bwd[TK(k - 1)] + 1;
         }
         y_bwd = x_bwd - k;
         // Follow diagonal as long as possible
@@ -392,8 +390,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
       if (k == -d || ((k != d) && (V_fwd[TK(k - 1)] < V_fwd[TK(k + 1)]))) {
         px = x_fwd = V_fwd[TK(k + 1)];
       } else {
-        px = V_fwd[TK(k - 1)];
-        x_fwd = px + 1;
+        x_fwd = px = V_fwd[TK(k - 1)] + 1;
       }
       y_fwd = x_fwd - k;
       // Follow diagonal as long as possible
@@ -431,8 +428,7 @@ std::tuple<Point, Point> myers_middle_move(const Area<C, K> &area,
       if (k == -d || ((k != d) && (V_bwd[TK(k - 1)] < V_bwd[TK(k + 1)]))) {
         px = x_bwd = V_bwd[TK(k + 1)];
       } else {
-        px = V_bwd[TK(k - 1)];
-        x_bwd = px + 1;
+        x_bwd = px = V_bwd[TK(k - 1)] + 1;
       }
       y_bwd = x_bwd - k;
       // Follow diagonal as long as possible
@@ -544,19 +540,19 @@ std::vector<Move<K>> myers_unfilled(const C<K, Args...> &a,
                                     const C<K, Args...> &b,
                                     int_fast64_t ns_per_step) {
 #ifdef YAVOM_TRANSPOSE
-  const auto &longest = a.size() > b.size() ? a : b;
+  const auto &int_fast64_test = a.size() > b.size() ? a : b;
   const auto &shortest = a.size() > b.size() ? b : a;
-  bool reversed = (&longest == &a);
+  bool reversed = (&int_fast64_test == &a);
 #else
-  const auto &longest = b;
+  const auto &int_fast64_test = b;
   const auto &shortest = a;
 #endif
-  Area<C, K> all{shortest, longest};
+  Area<C, K> all{shortest, int_fast64_test};
   std::vector<Move<K>> s;
   myers_moves(all, s, ns_per_step);
 #ifdef YAVOM_TRANSPOSE
   std::for_each(s.begin(), s.end(),
-                [&longest, &shortest, &reversed](auto &m) {
+                [&int_fast64_test, &shortest, &reversed](auto &m) {
                   auto &[m_op, m_s, m_t, v] = m;
                   switch (m_op) {
                   case OP::INSERT: {
